@@ -8,8 +8,11 @@
 <meta name="description" content="Fridge inventory with expiry priorities, shopping list and meal plans.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Холодильник">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600&display=swap" rel="stylesheet">
@@ -712,6 +715,9 @@ const u8=b=>Uint8Array.from(atob(b.replace(/-/g,'+').replace(/_/g,'/')+'='.repea
 let pushSub=null;
 async function pushState(){
   const st=$('pushStatus'),tg=$('pushToggle'),ts=$('pushTest');
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const standalone=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;
+  if(ios&&!standalone){st.textContent='На iPhone сповіщення працюють, коли застосунок додано на початковий екран: Safari → «Поділитися» → «На початковий екран». Потім відкрий його з іконки.';tg.disabled=true;return}
   if(!('serviceWorker' in navigator)||!('PushManager' in window)){st.textContent='Цей браузер не підтримує сповіщення.';tg.disabled=true;return}
   const reg=await navigator.serviceWorker.ready;
   pushSub=await reg.pushManager.getSubscription();
@@ -732,12 +738,13 @@ async function pushState(){
 $('pushToggle').onclick=async()=>{
   const tg=$('pushToggle');tg.disabled=true;
   try{
+    // iOS: ask for permission first, straight from the tap, before any other await
+    const perm=pushSub?'granted':await Notification.requestPermission();
     const reg=await navigator.serviceWorker.ready;
     if(pushSub){
       await sb.from('push_subscriptions').delete().eq('endpoint',pushSub.endpoint);
       await pushSub.unsubscribe();pushSub=null;toast('Нагадування вимкнено');
     }else{
-      const perm=await Notification.requestPermission();
       if(perm!=='granted'){await pushState();return}
       const{key}=await fetch(WORKER+'/push/key').then(r=>r.json());
       if(!key)throw new Error('no key');
