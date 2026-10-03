@@ -224,6 +224,15 @@ label.f{display:block;font-size:.85rem;color:var(--muted);margin:14px 0 6px}
     <div class="stats" id="logStats"></div>
     <nav class="tabs" id="logTabs" aria-label="Фільтр журналу"></nav>
     <div id="logList"></div>
+    <section class="card" id="pushCard">
+      <h2>🔔 Щоденне нагадування</h2>
+      <p class="sub" id="pushStatus">Перевіряю…</p>
+      <div class="addrow" style="margin-top:0">
+        <select class="inp" id="pushHour" aria-label="Година нагадування"></select>
+        <button class="btn btn-main" id="pushToggle" disabled>Увімкнути</button>
+      </div>
+      <button class="btn" id="pushTest" style="margin-top:8px" hidden>Надіслати тест</button>
+    </section>
     <div class="account"><span id="who"></span><button class="btn" id="logoutBtn">Вийти</button></div>
   </main>
 </div>
@@ -298,6 +307,7 @@ label.f{display:block;font-size:.85rem;color:var(--muted);margin:14px 0 6px}
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+const WORKER='https://fridge-mcp.yevhenheviuk.workers.dev';
 const SB_URL='https://cfgsgtuzwojcfoyxzrhr.supabase.co';
 const SB_KEY='sb_publishable_LmFqWvYidx73-nTtUB7HjQ_KNjyEeLc';
 const sb=createClient(SB_URL,SB_KEY);
@@ -694,6 +704,66 @@ async function start(){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)Object.values(byTable).forEach(s=>s.load())});
 }
 
+/* ---------- push ---------- */
+const hh=h=>String(h).padStart(2,'0')+':00';
+for(let h=0;h<24;h++)$('pushHour').append(el('option',{value:String(h)},hh(h)));
+$('pushHour').value='21';
+const u8=b=>Uint8Array.from(atob(b.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-b.length%4)%4)),c=>c.charCodeAt(0));
+let pushSub=null;
+async function pushState(){
+  const st=$('pushStatus'),tg=$('pushToggle'),ts=$('pushTest');
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){st.textContent='Цей браузер не підтримує сповіщення.';tg.disabled=true;return}
+  const reg=await navigator.serviceWorker.ready;
+  pushSub=await reg.pushManager.getSubscription();
+  let row=null;
+  if(pushSub){const{data}=await sb.from('push_subscriptions').select('hour').eq('endpoint',pushSub.endpoint).maybeSingle();row=data}
+  tg.disabled=false;
+  if(pushSub&&row){
+    $('pushHour').value=String(row.hour);
+    st.textContent=`Увімкнено: щодня о ${hh(row.hour)} — що горить і нагадування оновити запаси.`;
+    tg.textContent='Вимкнути';tg.classList.remove('btn-main');ts.hidden=false;
+  }else{
+    st.textContent=Notification.permission==='denied'
+      ?'Сповіщення заборонені. Дозволь їх для застосунку в налаштуваннях телефону.'
+      :'Вимкнено. Обери годину й увімкни.';
+    tg.textContent='Увімкнути';tg.classList.add('btn-main');ts.hidden=true;
+  }
+}
+$('pushToggle').onclick=async()=>{
+  const tg=$('pushToggle');tg.disabled=true;
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    if(pushSub){
+      await sb.from('push_subscriptions').delete().eq('endpoint',pushSub.endpoint);
+      await pushSub.unsubscribe();pushSub=null;toast('Нагадування вимкнено');
+    }else{
+      const perm=await Notification.requestPermission();
+      if(perm!=='granted'){await pushState();return}
+      const{key}=await fetch(WORKER+'/push/key').then(r=>r.json());
+      if(!key)throw new Error('no key');
+      const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(key)});
+      const{error}=await sb.from('push_subscriptions').upsert({endpoint:sub.endpoint,hour:Number($('pushHour').value)},{onConflict:'endpoint'});
+      if(error)throw error;
+      toast(`Готово! Щодня о ${hh($('pushHour').value)}`);
+    }
+  }catch(e){console.warn(e);toast('Не вийшло. Перевір інтернет і спробуй ще раз')}
+  await pushState();
+};
+$('pushHour').onchange=async()=>{
+  if(!pushSub)return;
+  const h=Number($('pushHour').value);
+  const{error}=await sb.from('push_subscriptions').update({hour:h}).eq('endpoint',pushSub.endpoint);
+  if(error){toast('Не збереглося');return}
+  toast(`Тепер о ${hh(h)}`);pushState();
+};
+$('pushTest').onclick=async()=>{
+  if(!pushSub)return;
+  try{
+    const r=await fetch(WORKER+'/push/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:pushSub.endpoint})});
+    toast(r.ok?'Тестове сповіщення надіслано':'Сервер не зміг надіслати сповіщення');
+  }catch{toast('Немає зв\u2019язку з сервером')}
+};
+
 /* ---------- auth ---------- */
 function showAuth(on){$('auth').hidden=!on}
 async function authDo(kind){
@@ -713,14 +783,14 @@ $('aSignup').onclick=()=>authDo('up');
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
 sb.auth.onAuthStateChange((_ev,s)=>{
   session=s;showAuth(!s);
-  if(s){$('who').textContent=s.user.email;start()}
+  if(s){$('who').textContent=s.user.email;start();pushState()}
 });
 
 /* ---------- boot ---------- */
 render();
 const{data:{session:s0}}=await sb.auth.getSession();
 session=s0;showAuth(!s0);
-if(s0){$('who').textContent=s0.user.email;start()}
+if(s0){$('who').textContent=s0.user.email;start();pushState()}
 setInterval(render,60*60*1000);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
