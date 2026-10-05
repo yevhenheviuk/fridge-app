@@ -1,6 +1,6 @@
 // Minimal service worker: makes the app installable and opens it offline.
 // Data always comes live from Supabase; only the app shell is cached.
-const CACHE = 'fridge-v3';
+const CACHE = 'fridge-v4';
 const WORKER = 'https://fridge-mcp.yevhenheviuk.workers.dev';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 

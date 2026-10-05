@@ -69,6 +69,10 @@ h1{font:700 1.5rem/1.1 Unbounded,system-ui,sans-serif;margin:0;letter-spacing:-.
 .tab{border:0;background:transparent;padding:8px 14px;border-radius:999px;color:var(--muted);white-space:nowrap;font-weight:500}
 .tab[aria-pressed="true"]{background:var(--chip);color:var(--ink)}
 
+.tools .tabs{margin:0 0 8px}
+.cat-tab{font-size:.88rem;padding:6px 11px}
+.sortrow{display:flex;justify-content:flex-end;align-items:center;gap:6px;color:var(--muted);font-size:.85rem}
+.sortrow .sort{width:auto;padding:6px 10px;font-size:.88rem;border-radius:999px;background:var(--surface);color:var(--ink)}
 .group{margin-top:22px}
 .group h2{font:500 .95rem/1.3 Onest,system-ui,sans-serif;color:var(--muted);margin:0 0 8px 4px}
 .list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
@@ -194,6 +198,10 @@ label.f{display:block;font-size:.85rem;color:var(--muted);margin:14px 0 6px}
   <main id="vStock">
     <section class="hero" id="hero" aria-live="polite"></section>
     <nav class="tabs" id="tabs" aria-label="Де лежить"></nav>
+    <div class="tools">
+      <nav class="tabs" id="catTabs" aria-label="Категорія"></nav>
+      <label class="sortrow">Сортувати <select class="inp sort" id="sortSel"></select></label>
+    </div>
     <div id="groups"></div>
   </main>
 
@@ -354,6 +362,10 @@ const $=id=>document.getElementById(id);
 
 let items=[],shop=[],staples=[],plans=[],logs=[],profiles=DEFAULT_PROFILES;
 let logFilter='all',editingShop=null,shopCat='other';
+const SORTS=[{id:'exp',n:'За терміном'},{id:'new',n:'Нещодавно додані'},{id:'old',n:'Давно додані'},{id:'name',n:'За назвою А–Я'},{id:'cat',n:'За категорією'}];
+const pref=(k,d)=>{try{return localStorage.getItem('fridge.'+k)||d}catch{return d}};
+const savePref=(k,v)=>{try{localStorage.setItem('fridge.'+k,v)}catch{}};
+let catFilter=pref('cat','all'),sortBy=pref('sort','exp');if(!SORTS.some(x=>x.id===sortBy))sortBy='exp';
 let view='stock',zoneFilter='all',editing=null,fromShop=null,catTouched=false,form={cat:'other',zone:'fridge'};
 let S={},session=null,started=false;
 
@@ -379,6 +391,8 @@ function status(it){
 }
 function rank(it){const d=daysLeft(it.exp);let r=d===null?9999:d;if(it.zone==='freezer'&&d===null)r=10000;if(it.pinned)r=r-100000;return r}
 function groupOf(it){const d=daysLeft(it.exp);if(it.pinned||(d!==null&&d<=1))return 0;if(d===null)return 4;if(d<=4)return 1;if(d<=7)return 2;return 3}
+const addedAt=it=>it.created_at||(it.added?it.added+'T00:00:00':'');
+function addedTxt(it){if(!it.added&&!it.created_at)return '';const d=Math.round((today()-parse((it.added||it.created_at).slice(0,10)))/864e5);return d<=0?'додано сьогодні':d===1?'додано вчора':`додано ${d} ${pDays(d)} тому`}
 const GROUPS=['Горить — з\u2019їсти першим','Найближчі дні','Цього тижня','Є час','Без дати'];
 function el(tag,attrs={},...kids){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(v==null||v===false)continue;if(k==='class')e.className=v;else if(k==='style')e.style.cssText=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else e.setAttribute(k,v===true?'':v)}for(const k of kids)if(k!=null&&k!==false)e.append(k);return e}
 const cat=id=>CATS.find(c=>c.id===id)||CATS[CATS.length-1];
@@ -413,7 +427,8 @@ function render(){
 
 function renderStock(){
   const sorted=[...items].sort((a,b)=>rank(a)-rank(b)||(a.name||'').localeCompare(b.name||'','uk'));
-  const shown=sorted.filter(i=>zoneFilter==='all'||i.zone===zoneFilter);
+  const inZone=sorted.filter(i=>zoneFilter==='all'||i.zone===zoneFilter);
+  const shown=inZone.filter(i=>catFilter==='all'||(i.cat||'other')===catFilter);
   $('count').textContent=items.length?`${items.length} ${plural(items.length,'продукт','продукти','продуктів')}`:'';
   const hero=$('hero');hero.replaceChildren();hero.className='hero';
   const first=sorted.find(i=>i.zone!=='freezer'||daysLeft(i.exp)!==null)||sorted[0];
@@ -431,14 +446,35 @@ function renderStock(){
     const n=z.id==='all'?items.length:items.filter(i=>i.zone===z.id).length;
     tabs.append(el('button',{class:'tab','aria-pressed':String(zoneFilter===z.id),onclick:()=>{zoneFilter=z.id;render()}},`${z.n}${n?` ${n}`:''}`));
   });
+  const ct=$('catTabs');ct.replaceChildren();
+  const present=CATS.filter(c=>c.id===catFilter||inZone.some(i=>(i.cat||'other')===c.id));
+  [{id:'all',e:'',n:'Усі'},...present].forEach(c=>{
+    const n=c.id==='all'?inZone.length:inZone.filter(i=>(i.cat||'other')===c.id).length;
+    ct.append(el('button',{class:'tab cat-tab','aria-pressed':String(catFilter===c.id),onclick:()=>{catFilter=c.id;savePref('cat',c.id);render()}},`${c.e?c.e+' ':''}${c.n}${n?` ${n}`:''}`));
+  });
+  const ss=$('sortSel');
+  if(!ss.options.length){SORTS.forEach(o=>ss.append(el('option',{value:o.id},o.n)));ss.onchange=()=>{sortBy=ss.value;savePref('sort',sortBy);render()}}
+  ss.value=sortBy;
   const g=$('groups');g.replaceChildren();
-  const buckets=[[],[],[],[],[]];shown.forEach(i=>buckets[groupOf(i)].push(i));
-  buckets.forEach((b,idx)=>{
+  const byName=(a,b)=>(a.name||'').localeCompare(b.name||'','uk');
+  let sections;
+  if(sortBy==='exp'){
+    const buckets=[[],[],[],[],[]];shown.forEach(i=>buckets[groupOf(i)].push(i));
+    sections=buckets.map((b,idx)=>[GROUPS[idx],b]);
+  }else if(sortBy==='cat'){
+    sections=CATS.map(c=>[`${c.e} ${c.n}`,shown.filter(i=>(i.cat||'other')===c.id)]);
+  }else if(sortBy==='name'){
+    sections=[[null,[...shown].sort(byName)]];
+  }else{
+    const dir=sortBy==='new'?-1:1;
+    sections=[[null,[...shown].sort((a,b)=>dir*addedAt(a).localeCompare(addedAt(b))||byName(a,b))]];
+  }
+  sections.forEach(([title,b])=>{
     if(!b.length)return;
     const ul=el('ul',{class:'list'});
     b.forEach(it=>{
       const s=status(it);
-      const meta=[it.qty,zoneFilter==='all'?zone(it.zone):null,s.txt].filter(Boolean).join(' · ');
+      const meta=[it.qty,zoneFilter==='all'?zone(it.zone):null,(sortBy==='new'||sortBy==='old')?addedTxt(it):s.txt].filter(Boolean).join(' · ');
       ul.append(el('li',{class:'item',style:`--c:${s.c}`},
         el('span',{class:'emoji','aria-hidden':'true'},cat(it.cat).e),
         el('button',{class:'body',onclick:()=>openSheet(it),'aria-label':`Змінити: ${it.name}`},
@@ -447,9 +483,9 @@ function renderStock(){
         el('span',{class:'days','aria-hidden':'true'},el('b',{},String(s.big)),el('small',{},s.small)),
         el('button',{class:'used',title:'Використав','aria-label':`Використав: ${it.name}`,onclick:()=>removeItem(it,'Використано')},'✓')));
     });
-    g.append(el('section',{class:'group'},el('h2',{},GROUPS[idx]),ul));
+    g.append(el('section',{class:'group'},title?el('h2',{},title):null,ul));
   });
-  if(items.length&&!shown.length)g.append(el('p',{class:'empty'},'Тут поки нічого.'));
+  if(items.length&&!shown.length)g.append(el('p',{class:'empty'},catFilter!=='all'?'У цій категорії тут нічого.':'Тут поки нічого.'));
 }
 
 function renderShop(){
