@@ -69,6 +69,11 @@ h1{font:700 1.5rem/1.1 Unbounded,system-ui,sans-serif;margin:0;letter-spacing:-.
 .tab{border:0;background:transparent;padding:8px 14px;border-radius:999px;color:var(--muted);white-space:nowrap;font-weight:500}
 .tab[aria-pressed="true"]{background:var(--chip);color:var(--ink)}
 
+.search{position:relative;margin:14px 0 0}
+.search .inp{padding-left:38px;padding-right:38px;background:var(--surface)}
+.search .ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.search input::-webkit-search-cancel-button{display:none}
+.search .clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);font-size:1rem;padding:8px 10px}
 .tools .tabs{margin:0 0 8px}
 .cat-tab{font-size:.88rem;padding:6px 11px}
 .sortrow{display:flex;justify-content:flex-end;align-items:center;gap:6px;color:var(--muted);font-size:.85rem}
@@ -197,6 +202,11 @@ label.f{display:block;font-size:.85rem;color:var(--muted);margin:14px 0 6px}
   <!-- STOCK -->
   <main id="vStock">
     <section class="hero" id="hero" aria-live="polite"></section>
+    <div class="search" role="search">
+      <span class="ico" aria-hidden="true">🔍</span>
+      <input class="inp" id="searchInp" type="search" autocomplete="off" enterkeyhint="search" placeholder="Пошук продукту" aria-label="Пошук продукту">
+      <button class="clr" id="searchClr" type="button" aria-label="Очистити пошук" hidden>✕</button>
+    </div>
     <nav class="tabs" id="tabs" aria-label="Де лежить"></nav>
     <div class="tools">
       <nav class="tabs" id="catTabs" aria-label="Категорія"></nav>
@@ -366,6 +376,7 @@ const SORTS=[{id:'exp',n:'За терміном'},{id:'new',n:'Нещодавн�
 const pref=(k,d)=>{try{return localStorage.getItem('fridge.'+k)||d}catch{return d}};
 const savePref=(k,v)=>{try{localStorage.setItem('fridge.'+k,v)}catch{}};
 let catFilter=pref('cat','all'),sortBy=pref('sort','exp');if(!SORTS.some(x=>x.id===sortBy))sortBy='exp';
+let searchQ='';
 let view='stock',zoneFilter='all',editing=null,fromShop=null,catTouched=false,form={cat:'other',zone:'fridge'};
 let S={},session=null,started=false;
 
@@ -427,7 +438,10 @@ function render(){
 
 function renderStock(){
   const sorted=[...items].sort((a,b)=>rank(a)-rank(b)||(a.name||'').localeCompare(b.name||'','uk'));
-  const inZone=sorted.filter(i=>zoneFilter==='all'||i.zone===zoneFilter);
+  const q=norm(searchQ);
+  const hit=i=>!q||norm(i.name).includes(q)||norm(i.qty).includes(q)||norm(cat(i.cat).n).includes(q);
+  const found=sorted.filter(hit);
+  const inZone=found.filter(i=>zoneFilter==='all'||i.zone===zoneFilter);
   const shown=inZone.filter(i=>catFilter==='all'||(i.cat||'other')===catFilter);
   $('count').textContent=items.length?`${items.length} ${plural(items.length,'продукт','продукти','продуктів')}`:'';
   const hero=$('hero');hero.replaceChildren();hero.className='hero';
@@ -443,7 +457,7 @@ function renderStock(){
   }
   const tabs=$('tabs');tabs.replaceChildren();
   [{id:'all',n:'Усе'},...ZONES].forEach(z=>{
-    const n=z.id==='all'?items.length:items.filter(i=>i.zone===z.id).length;
+    const n=z.id==='all'?found.length:found.filter(i=>i.zone===z.id).length;
     tabs.append(el('button',{class:'tab','aria-pressed':String(zoneFilter===z.id),onclick:()=>{zoneFilter=z.id;render()}},`${z.n}${n?` ${n}`:''}`));
   });
   const ct=$('catTabs');ct.replaceChildren();
@@ -485,7 +499,11 @@ function renderStock(){
     });
     g.append(el('section',{class:'group'},title?el('h2',{},title):null,ul));
   });
-  if(items.length&&!shown.length)g.append(el('p',{class:'empty'},catFilter!=='all'?'У цій категорії тут нічого.':'Тут поки нічого.'));
+  if(items.length&&!shown.length){
+    if(q&&found.length)g.append(el('p',{class:'empty'},`Тут не знайшов, але є ще ${found.length} в інших розділах. `,
+      el('button',{class:'btn',type:'button',onclick:()=>{zoneFilter='all';catFilter='all';savePref('cat','all');render()}},'Показати')));
+    else g.append(el('p',{class:'empty'},q?`Нічого не знайшов за «${searchQ.trim()}».`:catFilter!=='all'?'У цій категорії тут нічого.':'Тут поки нічого.'));
+  }
 }
 
 function renderShop(){
@@ -828,6 +846,9 @@ sb.auth.onAuthStateChange((_ev,s)=>{
   session=s;showAuth(!s);
   if(s){$('who').textContent=s.user.email;start();pushState()}
 });
+
+$('searchInp').addEventListener('input',e=>{searchQ=e.target.value;$('searchClr').hidden=!searchQ;render()});
+$('searchClr').onclick=()=>{searchQ='';$('searchInp').value='';$('searchClr').hidden=true;render();$('searchInp').focus()};
 
 /* ---------- boot ---------- */
 render();
