@@ -144,6 +144,24 @@ h1{font:700 1.5rem/1.1 Unbounded,system-ui,sans-serif;margin:0;letter-spacing:-.
 .meal details{font-size:.9rem;margin-top:4px}
 .meal summary{color:var(--week);cursor:pointer}
 .meal details p{margin:6px 0 0;white-space:pre-wrap}
+/* history */
+.hist-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:26px 4px 4px}
+.hist-h h2{font:700 1.05rem/1.2 Unbounded,system-ui,sans-serif;margin:0}
+.avg{font-size:.85rem;color:var(--muted);margin:4px 4px 0}
+.avg b{color:var(--ink)}
+.hday{margin-top:8px;background:var(--surface);border-radius:16px;padding:0 14px}
+.hday summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;padding:12px 0}
+.hday summary::-webkit-details-marker{display:none}
+.hday .hd{font-weight:600;text-transform:capitalize}
+.hday .hk{font:700 1rem/1 Unbounded,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.hday .hk small{font:500 .78rem Onest,system-ui,sans-serif;color:var(--muted)}
+.bar{grid-column:1/-1;height:6px;border-radius:99px;background:var(--chip);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--fresh);border-radius:99px}
+.bar.over i{background:var(--hot)}
+.hmeal{display:grid;grid-template-columns:1fr auto;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:.92rem}
+.hmeal .mk{font-variant-numeric:tabular-nums;white-space:nowrap}
+.hmeal.plan{color:var(--muted)}
+.hday .hint{margin:0 0 12px}
 
 /* auth */
 .auth{position:fixed;inset:0;background:var(--bg);z-index:20;display:grid;place-items:center;padding:24px;padding-top:calc(24px + env(safe-area-inset-top,0px))}
@@ -371,7 +389,7 @@ const DEFAULT_PROFILES={people:[{id:'me',name:'Я',goal:'',kcal:null,avoid:''}]}
 const $=id=>document.getElementById(id);
 
 let items=[],shop=[],staples=[],plans=[],logs=[],profiles=DEFAULT_PROFILES;
-let logFilter='all',editingShop=null,shopCat='other';
+let histPerson='oleksandra',logFilter='all',editingShop=null,shopCat='other';
 const SORTS=[{id:'exp',n:'За терміном'},{id:'new',n:'Нещодавно додані'},{id:'old',n:'Давно додані'},{id:'name',n:'За назвою А–Я'},{id:'cat',n:'За категорією'}];
 const pref=(k,d)=>{try{return localStorage.getItem('fridge.'+k)||d}catch{return d}};
 const savePref=(k,v)=>{try{localStorage.setItem('fridge.'+k,v)}catch{}};
@@ -552,7 +570,7 @@ function renderPlan(){
   if(!plan){
     box.append(el('section',{class:'card'},el('h2',{},'Раціону ще немає'),
       el('p',{class:'sub',style:'margin:0'},'Попроси в чаті проєкту скласти меню на кілька днів — воно з\u2019явиться тут разом з калоріями, а потрібні продукти одразу впадуть у покупки.')));
-    return;
+    renderHistory(box);return;
   }
   box.append(el('section',{class:'card'},el('h2',{},plan.title||'Раціон'),plan.notes?el('p',{class:'sub',style:'margin:0;white-space:pre-wrap'},plan.notes):null));
   const t=iso(today());
@@ -573,6 +591,60 @@ function renderPlan(){
           m.recipe?el('details',{},el('summary',{},'Як приготувати'),el('p',{},m.recipe)):null)));
     });
     box.append(card);
+  });
+  renderHistory(box);
+}
+/* ---------- history: що з'їв кожен по днях ---------- */
+function historyDays(pid){
+  const map=new Map();
+  plans.forEach(pl=>(pl.days||[]).forEach(d=>{
+    if(!d.date)return;
+    (d.meals||[]).forEach(m=>{
+      const k=m.kcal&&m.kcal[pid];if(!k)return;
+      if(!map.has(d.date))map.set(d.date,[]);
+      map.get(d.date).push(m);
+    });
+  }));
+  return [...map.entries()].filter(([d])=>d<=iso(today())).sort((a,b)=>b[0].localeCompare(a[0])).map(([date,meals])=>{
+    const eaten=meals.filter(m=>m.done);
+    const confirmed=eaten.length>0;
+    const list=confirmed?eaten:meals;
+    const sum=list.reduce((a,m)=>a+(m.kcal[pid]||0),0);
+    return {date,meals:list,sum,confirmed};
+  });
+}
+function renderHistory(box){
+  const ppl=(profiles.people||[]).filter(p=>p.id!=='me');
+  if(!ppl.length)return;
+  if(!ppl.some(p=>p.id===histPerson))histPerson=ppl[0].id;
+  const p=ppl.find(x=>x.id===histPerson);
+  const days=historyDays(p.id);
+  const head=el('div',{class:'hist-h'},el('h2',{},'Що з’їли по днях'));
+  const tabs=el('div',{class:'chips'});
+  ppl.forEach(x=>tabs.append(el('button',{class:'chip','aria-pressed':String(x.id===histPerson),onclick:()=>{histPerson=x.id;render()}},x.name)));
+  head.append(tabs);box.append(head);
+  if(!days.length){box.append(el('p',{class:'empty'},'Тут з’являтимуться дні, коли щось записано в раціон.'));return}
+  const t=iso(today());
+  const week=days.filter(d=>d.confirmed&&d.date<t&&(today()-parse(d.date))/864e5<=7);
+  if(week.length){
+    const avg=Math.round(week.reduce((a,d)=>a+d.sum,0)/week.length);
+    box.append(el('p',{class:'avg'},`Середнє за ${week.length} ${pDays(week.length)} цього тижня: `,el('b',{},`${avg} ккал`),p.kcal?` з ${p.kcal}`:''));
+  }
+  days.slice(0,30).forEach(d=>{
+    const pct=p.kcal?Math.min(100,Math.round(d.sum/p.kcal*100)):0;
+    const over=p.kcal&&d.sum>p.kcal*1.05;
+    const left=p.kcal?p.kcal-d.sum:null;
+    const det=el('details',{class:'hday',open:d.date===t||null},
+      el('summary',{},
+        el('span',{class:'hd'},(d.date===t?'Сьогодні · ':'')+fmtDay(d.date)),
+        el('span',{class:'hk'+(over?' over':'')},String(d.sum),el('small',{},p.kcal?` / ${p.kcal}`:' ккал')),
+        p.kcal?el('span',{class:'bar'+(over?' over':'')},el('i',{style:`width:${pct}%`})):null));
+    if(!d.confirmed)det.append(el('p',{class:'hint'},'За планом — нічого не відмічено як з’їдене.'));
+    else if(d.date===t&&left!==null)det.append(el('p',{class:'hint'},left>=0?`Ще можна ${left} ккал`:`Понад ціль на ${-left} ккал`));
+    d.meals.forEach(m=>det.append(el('div',{class:'hmeal'+(d.confirmed?'':' plan')},
+      el('div',{},m.slot?el('div',{class:'mslot'},m.slot):null,el('div',{},(m.name||'').replace(new RegExp('^'+p.name+':\\s*'),''))),
+      el('span',{class:'mk'},`${m.kcal[p.id]} ккал`))));
+    box.append(det);
   });
 }
 async function toggleMeal(plan,di,mi,done){
