@@ -1,0 +1,9 @@
+/* log — scoped to [data-feature="log"] */
+[data-feature="log"] .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:16px}
+[data-feature="log"] .stat{background:var(--surface);border-radius:14px;padding:10px 6px;text-align:center}
+[data-feature="log"] .stat b{display:block;font:700 1.35rem/1.1 Unbounded,system-ui,sans-serif}
+[data-feature="log"] .stat span{font-size:.75rem;color:var(--muted)}
+[data-feature="log"] .stat.bad b{color:var(--hot)}
+[data-feature="log"] .stat.good b{color:var(--fresh)}
+[data-feature="log"] .lrow{display:grid;grid-template-columns:3rem auto 1fr auto;align-items:center;gap:10px;background:var(--surface);border-radius:12px;padding:8px 6px 8px 12px}
+[data-feature="log"] .ltime{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}

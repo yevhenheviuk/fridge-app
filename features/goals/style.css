@@ -1,0 +1,12 @@
+/* goals — scoped to [data-feature="goals"] */
+[data-feature="goals"] .hero .of{font:500 1rem Onest,system-ui,sans-serif;color:var(--muted)}
+[data-feature="goals"] .glist{display:flex;flex-direction:column;gap:8px}
+[data-feature="goals"] .goal{background:var(--surface);border-radius:18px;padding:14px}
+[data-feature="goals"] .goal.done{opacity:.7}
+[data-feature="goals"] .goal.done .bar i{background:var(--soon)}
+[data-feature="goals"] .g-top{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-bottom:10px}
+[data-feature="goals"] .g-em{font-size:1.6rem;width:2.2rem;text-align:center}
+[data-feature="goals"] .g-meta{display:flex;justify-content:space-between;gap:8px;font-size:.88rem;color:var(--muted);margin-top:6px}
+[data-feature="goals"] .g-meta b{color:var(--ink)}
+[data-feature="goals"] .goal .bar{height:10px}
+[data-feature="goals"] .row .inp-sm{width:100px}

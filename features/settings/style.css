@@ -1,0 +1,5 @@
+/* settings — scoped to [data-feature="settings"] */
+[data-feature="settings"] code{background:var(--chip);border-radius:6px;padding:0 5px}
+[data-feature="settings"] .lvl{font:700 1.4rem/1.2 Unbounded,system-ui,sans-serif;margin:4px 0 10px}
+[data-feature="settings"] .lvl small{font:500 .85rem Onest,system-ui,sans-serif;color:var(--muted)}
+[data-feature="settings"] .account{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:28px;color:var(--muted);font-size:.85rem}

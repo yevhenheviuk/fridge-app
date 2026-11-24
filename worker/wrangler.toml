@@ -1,0 +1,9 @@
+# Deploy: cd worker && npx wrangler deploy
+# Variables & secrets live in the Cloudflare dashboard (keep_vars keeps them).
+name = "fridge-mcp"
+main = "index.js"
+compatibility_date = "2025-09-01"
+keep_vars = true
+
+[triggers]
+crons = ["0 * * * *"]

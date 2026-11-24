@@ -1,8 +1,9 @@
 // Minimal service worker: makes the app installable and opens it offline.
 // Data always comes live from Supabase; only the app shell is cached.
-const CACHE = 'fridge-v6';
+const CACHE = 'home-v7';
 const WORKER = 'https://fridge-mcp.yevhenheviuk.workers.dev';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
+// App shell for offline start. Feature files are cached on first load (network-first below).
+const SHELL = ['./', './index.html', './app/base.css', './app/main.js', './app/core.js', './app/db.js', './app/people.js', './app/registry.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
@@ -26,7 +27,7 @@ self.addEventListener('fetch', e => {
 // Daily push: the push itself is empty, the text is fetched fresh from the worker.
 self.addEventListener('push', e => {
   e.waitUntil((async () => {
-    let title = '🧊 Час оновити холодильник';
+    let title = '🏠 Наш Дім';
     let body = 'Відміть, що з\u2019їли й купили сьогодні.';
     try {
       const sub = await self.registration.pushManager.getSubscription();

@@ -1,0 +1,14 @@
+/* calendar — scoped to [data-feature="calendar"] */
+[data-feature="calendar"] .cal{margin-top:16px;background:var(--surface);border-radius:18px;padding:12px}
+[data-feature="calendar"] .cal-h{display:flex;justify-content:space-between;align-items:center;padding:0 4px 8px}
+[data-feature="calendar"] .cal-h b{font:700 1rem/1.2 Unbounded,system-ui,sans-serif;text-transform:capitalize}
+[data-feature="calendar"] .cal-h .x{font-size:1.4rem}
+[data-feature="calendar"] .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+[data-feature="calendar"] .dow{text-align:center;font-size:.75rem;color:var(--muted);padding:4px 0}
+[data-feature="calendar"] .day{border:0;background:transparent;border-radius:10px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;font-size:.95rem}
+[data-feature="calendar"] .day.out{color:var(--muted);opacity:.5}
+[data-feature="calendar"] .day.today{box-shadow:inset 0 0 0 2px var(--fresh)}
+[data-feature="calendar"] .day.sel{background:var(--accent);color:var(--on-accent)}
+[data-feature="calendar"] .dots{display:flex;gap:2px;height:5px}
+[data-feature="calendar"] .dots i{width:5px;height:5px;border-radius:50%;background:var(--week)}
+[data-feature="calendar"] .day.sel .dots i{background:var(--on-accent)}

@@ -1,0 +1,3 @@
+/* todo — scoped to [data-feature="todo"] */
+[data-feature="todo"] .owner-row{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+[data-feature="todo"] .meta.late{color:var(--hot);font-weight:600}
