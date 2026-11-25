@@ -224,7 +224,7 @@ async function useItem(it, toShop) {
 /* ---------- gestures: swipe → used + shop, swipe ← used, hold → configurable ---------- */
 export const HOLD = [
   { id: '+1', n: '+1 день' }, { id: '+2', n: '+2 дні' }, { id: '+3', n: '+3 дні' }, { id: '+7', n: '+7 днів' },
-  { id: '-1', n: '−1 день' }, { id: 'clear', n: 'Прибрати дату' }, { id: 'pin', n: 'З’їсти першим (вкл/викл)' }, { id: 'edit', n: 'Відкрити редагування' },
+  { id: '-1', n: '−1 день' }, { id: 'clear', n: 'Прибрати дату' }, { id: 'pin', n: 'З’їсти першим' }, { id: 'edit', n: 'Відкрити редагування' },
 ];
 const holdId = () => (HOLD.some(h => h.id === pref('fridge.hold', '+1')) ? pref('fridge.hold', '+1') : '+1');
 
