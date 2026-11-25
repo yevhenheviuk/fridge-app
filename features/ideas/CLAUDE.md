@@ -10,6 +10,5 @@ Two modes in one view:
 **Owns tables:** `ideas` (text, d, person), `projects` (emoji, title, status, updated), `project_notes` (project_id, text, d, pin, person)
 **Public actions:** `openProject(id)`
 **MCP:** list_ideas (optionally one project with notes), add_idea (or a note with project_id)
-**Telegram:** «💡 думка», «ідея: …», `/idea …` → ideas. Weekly digest lists cooling projects.
 **XP:** idea +2, idea→project +5, note +1, project done +30.
 Only one note per project is pinned.

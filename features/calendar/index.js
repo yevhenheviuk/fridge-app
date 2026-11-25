@@ -26,7 +26,7 @@ function init(root) {
       R.grid),
     el('section', { class: 'group' }, R.dayH, R.day,
       el('form', { class: 'addrow', onsubmit: add }, R.title, R.time, el('button', { class: 'btn btn-main', type: 'submit' }, '+'))),
-    el('p', { class: 'hint' }, 'О 8:00 бот нагадує в Телеграм-групі про події і справи на сьогодні.'));
+    el('p', { class: 'hint' }, 'Події й справи на сьогодні приходять у щоденному сповіщенні (⚙️).'));
 }
 const shift = n => { month = new Date(month.getFullYear(), month.getMonth() + n, 1); render(); };
 async function add(e) {

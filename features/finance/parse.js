@@ -1,5 +1,5 @@
 // Expense categories + free-text parser. PURE module: used by the app
-// (features/finance) AND by the worker (Telegram "delhaize 47", MCP add_expense).
+// (features/finance) AND by the worker (MCP add_expense).
 // Changing a category key = data migration (expenses.cat stores it).
 
 export const EXP_CATS = [

@@ -1,5 +1,5 @@
 // ✅ Справи — shared todos with optional due date and owner, +10 XP each.
-// Due todos also show in calendar and in the 8:00 Telegram / push digest.
+// Due todos also show in calendar and in the daily push digest.
 import { el, todayIso, fmtDate, plural, confirmTap } from '../../app/core.js';
 import { data, db } from '../../app/db.js';
 import { persons, personName, addXp } from '../../app/people.js';

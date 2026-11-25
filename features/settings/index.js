@@ -1,7 +1,7 @@
 // ⚙️ Налаштування — who am I on this device, house level (XP),
-// daily push reminder, Telegram bot hint, account. Opened from the header.
+// daily push reminder, logout. Opened from the header.
 import { el, toast, app } from '../../app/core.js';
-import { sb, WORKER } from '../../app/db.js';
+import { api, WORKER } from '../../app/db.js';
 import { persons, me, setMe, xpOf, houseXp, level } from '../../app/people.js';
 
 const R = {};
@@ -17,17 +17,13 @@ function init(root) {
   R.hour.value = '21';
   R.toggle = el('button', { class: 'btn btn-main', disabled: true, onclick: togglePush }, 'Увімкнути');
   R.test = el('button', { class: 'btn', style: 'margin-top:8px', hidden: true, onclick: testPush }, 'Надіслати тест');
-  R.email = el('span');
   root.append(
     el('section', { class: 'card' }, el('h2', {}, '👤 Хто я на цьому пристрої'),
       el('p', { class: 'sub' }, 'Від цього залежить, чиї витрати, внески й думки.'), R.who),
     el('section', { class: 'card' }, el('h2', {}, '🏠 Рівень дому'), R.lvl),
     el('section', { class: 'card' }, el('h2', {}, '🔔 Щоденне нагадування'), R.pushStatus,
       el('div', { class: 'addrow', style: 'margin-top:0' }, R.hour, R.toggle), R.test),
-    el('section', { class: 'card' }, el('h2', {}, '✈️ Телеграм-бот'),
-      el('p', { class: 'sub', style: 'margin:0' }, 'Пиши боту швидко, не відкриваючи аппку: ', el('code', {}, 'aldi 23'), ' — витрата, ',
-        el('code', {}, '💡 думка'), ' — ідея, ', el('code', {}, 'купити молоко, хліб'), ' — покупки. У групі о 8:00 — справи й події на день, у неділю — підсумок тижня.')),
-    el('div', { class: 'account' }, R.email, el('button', { class: 'btn', onclick: async () => { await sb.auth.signOut(); location.reload(); } }, 'Вийти')));
+    el('div', { class: 'account' }, el('span', {}, 'Дані: Cloudflare D1 · Claude бачить їх через MCP'), el('button', { class: 'btn', onclick: () => app.logout() }, 'Вийти')));
   R.hour.onchange = changeHour;
 }
 
@@ -41,7 +37,6 @@ function render() {
     el('div', { class: 'bar' }, el('i', { style: `width:${H.p}%` })),
     el('p', { class: 'hint' }, ps.map(p => `${p.name}: ${xpOf(p.id)} XP`).join(' · ') || ''),
     el('p', { class: 'hint' }, 'XP за справи (+10), внески в цілі, ідеї, витрати й закриті проекти.'));
-  R.email.textContent = app.session?.user?.email || '';
   if (!pushChecked) { pushChecked = true; pushState(); }
 }
 
@@ -55,7 +50,7 @@ async function pushState() {
   const reg = await navigator.serviceWorker.ready;
   pushSub = await reg.pushManager.getSubscription();
   let row = null;
-  if (pushSub) { const { data } = await sb.from('push_subscriptions').select('hour').eq('endpoint', pushSub.endpoint).maybeSingle(); row = data; }
+  if (pushSub) { try { row = (await api('/rows/push_subscriptions?eq=' + encodeURIComponent('endpoint.' + pushSub.endpoint)))[0] || null; } catch { row = null; } }
   tg.disabled = false;
   if (pushSub && row) {
     R.hour.value = String(row.hour);
@@ -73,15 +68,14 @@ async function togglePush() {
     const perm = pushSub ? 'granted' : await Notification.requestPermission();
     const reg = await navigator.serviceWorker.ready;
     if (pushSub) {
-      await sb.from('push_subscriptions').delete().eq('endpoint', pushSub.endpoint);
+      await api('/rows/push_subscriptions?eq=' + encodeURIComponent('endpoint.' + pushSub.endpoint), { method: 'DELETE' });
       await pushSub.unsubscribe(); pushSub = null; toast('Нагадування вимкнено');
     } else {
       if (perm !== 'granted') { await pushState(); return; }
       const { key } = await fetch(WORKER + '/push/key').then(r => r.json());
       if (!key) throw new Error('no key');
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: u8(key) });
-      const { error } = await sb.from('push_subscriptions').upsert({ endpoint: sub.endpoint, hour: Number(R.hour.value) }, { onConflict: 'endpoint' });
-      if (error) throw error;
+      await api('/rows/push_subscriptions?onConflict=endpoint', { method: 'POST', body: { endpoint: sub.endpoint, hour: Number(R.hour.value) } });
       toast(`Готово! Щодня о ${hh(R.hour.value)}`);
     }
   } catch (e) { console.warn(e); toast('Не вийшло. Перевір інтернет і спробуй ще раз'); }
@@ -90,8 +84,8 @@ async function togglePush() {
 async function changeHour() {
   if (!pushSub) return;
   const h = Number(R.hour.value);
-  const { error } = await sb.from('push_subscriptions').update({ hour: h }).eq('endpoint', pushSub.endpoint);
-  if (error) { toast('Не збереглося'); return; }
+  try { await api('/rows/push_subscriptions?eq=' + encodeURIComponent('endpoint.' + pushSub.endpoint), { method: 'PATCH', body: { hour: h } }); }
+  catch { toast('Не збереглося'); return; }
   toast(`Тепер о ${hh(h)}`); pushState();
 }
 async function testPush() {

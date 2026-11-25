@@ -1,5 +1,5 @@
 // 💡 Ідеї — raw ideas inbox → projects with a stream of notes and a pinned
-// "next step". Telegram: «💡 думка» lands in ideas.
+// "next step".
 import { el, toast, todayIso, fmtDate, ago, daysAgo, confirmTap } from '../../app/core.js';
 import { data, db } from '../../app/db.js';
 import { meOrFirst, personName, addXp, persons } from '../../app/people.js';
@@ -18,7 +18,7 @@ function init(root) {
   R.pNew = el('input', { class: 'inp', placeholder: 'Новий проект', autocomplete: 'off' });
   R.listMode = el('div', {},
     el('section', { class: 'card capture' }, R.cap,
-      el('div', { class: 'cap-row' }, el('span', { class: 'hint', style: 'margin:0' }, 'Або напиши боту «💡 думка»'),
+      el('div', { class: 'cap-row' }, el('span', { class: 'hint', style: 'margin:0' }, 'Ctrl+Enter — зберегти'),
         el('button', { class: 'btn btn-main', onclick: addIdea }, 'Зберегти'))),
     el('section', { class: 'group' }, el('h2', {}, 'Сирі ідеї'), R.ideas),
     el('section', { class: 'group' }, el('h2', {}, 'Проекти'), R.projects,
@@ -53,7 +53,7 @@ function close() { openP = null; render(); scrollTo(0, 0); }
 
 async function addIdea() {
   const text = R.cap.value.trim().slice(0, 2000); if (!text) return;
-  if (!(await db.ideas.add({ text, person: meOrFirst() }))) return;
+  if (!(await db.ideas.add({ text, person: meOrFirst(), d: todayIso() }))) return;
   R.cap.value = ''; toast('Збережено. Не втече 🔥'); addXp(2);
 }
 async function addProject(e) {
@@ -73,7 +73,7 @@ async function ideaToProject(i) {
 async function sendNote() {
   const text = R.note.value.trim().slice(0, 4000); if (!text || !openP) return;
   R.note.value = ''; R.note.style.height = 'auto';
-  await db.project_notes.add({ project_id: openP, text, person: meOrFirst() });
+  await db.project_notes.add({ project_id: openP, text, person: meOrFirst(), d: todayIso() });
   await db.projects.update(openP, { updated: todayIso() });
   addXp(1); R.note.focus(); scrollTo(0, document.body.scrollHeight);
 }

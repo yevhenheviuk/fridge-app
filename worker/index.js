@@ -9,12 +9,10 @@
 import { handleApi } from './api.js';
 import { handleMcp } from './mcp.js';
 import { handlePush, hourlyPush } from './push.js';
-import { migrateSupabase } from './migrate.js';
 
 export default {
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(Promise.allSettled([hourlyPush(env), migrateSupabase(env)]).then(rs =>
-      rs.forEach(r => r.status === 'rejected' && console.error('cron', r.reason))));
+    ctx.waitUntil(hourlyPush(env).catch(e => console.error('cron', e)));
   },
 
   async fetch(request, env) {
@@ -23,7 +21,6 @@ export default {
       if (url.pathname.startsWith('/api/')) return await handleApi(request, env, url);
       if (url.pathname.startsWith('/push/')) return await handlePush(request, env, url);
       if (env.MCP_TOKEN && url.pathname === `/mcp/${env.MCP_TOKEN}`) return await handleMcp(request, env);
-      if (url.pathname === '/migrate-supabase') return Response.json(await migrateSupabase(env)); // one-time, idempotent
       return new Response('Not found', { status: 404 });
     } catch (e) {
       console.error(e);

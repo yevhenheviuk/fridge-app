@@ -1,6 +1,6 @@
 // Food catalog: categories, storage zones, name → category guess.
 // PURE module (no DOM, no Supabase): imported by the app AND by the worker
-// (Telegram "купити …" guesses the category with it).
+// (MCP tools may use guessCat).
 // Used by features: fridge, shopping, log, meals. Changing a category id is a
 // data migration (items/shopping/staples/log.cat store these ids).
 

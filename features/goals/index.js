@@ -1,7 +1,6 @@
 // 🎯 Цілі — savings goals with progress, contributions per person, wishlist.
-// Contribution is atomic in Postgres: rpc goal_contribute (caps + closes goal).
-// The worker posts 🎉 to Telegram when a goal closes (goals.announced).
-import { el, toast, eur, num, confirmTap } from '../../app/core.js';
+// Contribution is atomic on the server: rpc goal_contribute (caps + closes goal).
+import { el, toast, eur, num, confirmTap, todayIso } from '../../app/core.js';
 import { data, db, rpc } from '../../app/db.js';
 import { meOrFirst, personName, addXp } from '../../app/people.js';
 
@@ -40,7 +39,7 @@ async function addWish(e) {
 async function contribute(g, input) {
   const a = num(input.value);
   if (!(a > 0)) { toast('Введи суму'); input.focus(); return; }
-  const r = await rpc('goal_contribute', { p_goal: g.id, p_person: meOrFirst(), p_amount: a });
+  const r = await rpc('goal_contribute', { goal: g.id, person: meOrFirst(), amount: a, d: todayIso() });
   if (!r) return;
   input.value = '';
   await Promise.all([db.goals.load(), db.goal_contribs.load()]);

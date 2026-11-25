@@ -11,4 +11,3 @@ fridge sheet ("Купив — куди поклав?") so it lands in stock.
 **Shared deps:** `shared/kitchen.js` (`shopEntries`, `inStock`, `stapleFor`, `logEvent`), `shared/food.js`
 **Calls:** `app.call('fridge', 'openSheet', null, entry)`
 **MCP:** get_shopping, add_shopping (source "plan" from meal plans), remove_shopping
-**Telegram:** «купити молоко, хліб» / `/buy …` → rows here (worker/telegram.js)

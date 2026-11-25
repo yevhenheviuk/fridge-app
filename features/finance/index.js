@@ -1,5 +1,5 @@
 // 💸 Витрати — quick expense entry ("aldi 23"), month total, by-category bars.
-import { el, toast, today, iso, parse, eur, fmtDate, MONTHS, confirmTap } from '../../app/core.js';
+import { el, toast, today, iso, todayIso, eur, fmtDate, MONTHS, confirmTap } from '../../app/core.js';
 import { data, db } from '../../app/db.js';
 import { meOrFirst, personName, addXp, persons } from '../../app/people.js';
 import { EXP_CATS, expCat, catOf, parseExpense } from './parse.js';
@@ -16,7 +16,7 @@ function init(root) {
   R.more = el('button', { class: 'btn btn-sm', onclick: () => { showAll = !showAll; render(); } });
   root.append(
     el('form', { class: 'addrow', onsubmit: add }, R.inp, el('button', { class: 'btn btn-main', type: 'submit' }, 'Додати')),
-    el('p', { class: 'hint' }, 'Назва і сума — категорія ставиться сама. Не та? Тапни іконку. Можна й боту в Телеграм: ', el('code', {}, 'aldi 23'), ', а в групі з мінусом: ', el('code', {}, '-aldi 23')),
+    el('p', { class: 'hint' }, 'Назва і сума — категорія ставиться сама. Не та? Тапни іконку.'),
     R.hero,
     el('section', { class: 'group' }, el('h2', {}, 'За категоріями'), R.cats),
     el('section', { class: 'group' }, el('h2', {}, 'Останні'), R.list, R.more));
@@ -27,7 +27,7 @@ async function add(e) {
   const p = parseExpense(R.inp.value);
   if (!p || !(p.amount > 0)) { toast('Напиши назву і суму, напр. «aldi 23»'); return; }
   const cat = catOf(p.title), c = expCat(cat);
-  const ok = await db.expenses.add({ title: p.title.slice(0, 100), amount: p.amount, cat, person: meOrFirst() });
+  const ok = await db.expenses.add({ title: p.title.slice(0, 100), amount: p.amount, cat, person: meOrFirst(), d: todayIso() });
   if (!ok) return;
   R.inp.value = ''; R.inp.focus();
   toast(`${c.e} ${c.n}: −${eur(p.amount)}`);

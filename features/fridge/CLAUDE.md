@@ -10,7 +10,7 @@ category guess, quick expiry chips, "always keep at home", trigger flag.
 **Shared deps:** `shared/food.js` (categories, guessCat), `shared/kitchen.js`
 **Public actions:** `openSheet(item|null, prefill)` — shopping calls it when an item is bought.
 **MCP:** list_items, add_items, update_item, remove_items (remove writes log used/tossed)
-**Elsewhere:** push digest and Telegram 8:00 list items expiring today (`worker/push.js`, `worker/telegram.js`).
+**Elsewhere:** the daily push digest lists items expiring today/tomorrow (`worker/push.js`).
 
 Gotchas: `trig` = not for Yevhen (label uses profile `yevhen`). Status colours:
 ≤1 day hot, ≤4 soon, ≤7 week, else fresh. Category ids are stored in DB — don't rename.
