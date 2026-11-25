@@ -1,0 +1,3 @@
+{ "name": "fridge-mcp", "private": true, "type": "module",
+  "scripts": { "deploy": "wrangler deploy", "dev": "wrangler dev", "migrate": "wrangler d1 migrations apply home --remote" },
+  "devDependencies": { "wrangler": "4.42.0" } }

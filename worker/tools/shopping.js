@@ -1,5 +1,5 @@
-// MCP tools for feature: shopping (tables shopping, staples; reads items).
-import { pick } from '../lib/time.js';
+// MCP tools — feature: shopping (tables shopping, staples; reads items).
+import { brusselsDate, pick } from '../lib/time.js';
 import { ITEM_FIELDS } from './fridge.js';
 
 export default [
@@ -8,7 +8,7 @@ export default [
     description: 'Get the shopping list plus staples (always-at-home products) with whether each is in stock.',
     inputSchema: { type: 'object', properties: {} },
     async run(a, s) {
-      const [shop, staples, items] = await Promise.all([s.select('shopping'), s.select('staples'), s.select('items')]);
+      const [shop, staples, items] = await Promise.all([s.rows('shopping'), s.rows('staples'), s.rows('items')]);
       const n = x => (x || '').toLowerCase().trim();
       return {
         shopping: shop.map(r => pick(r, ['id', 'name', 'qty', 'note', 'cat', 'source'])),
@@ -21,15 +21,10 @@ export default [
     description: 'Add items to the shopping list. Use source "plan" for items needed by a meal plan.',
     inputSchema: {
       type: 'object', required: ['items'],
-      properties: {
-        items: {
-          type: 'array',
-          items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, qty: { type: 'string' }, note: { type: 'string' }, cat: ITEM_FIELDS.cat, zone: ITEM_FIELDS.zone, source: { type: 'string', enum: ['manual', 'plan'] } } },
-        },
-      },
+      properties: { items: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, qty: { type: 'string' }, note: { type: 'string' }, cat: ITEM_FIELDS.cat, zone: ITEM_FIELDS.zone, source: { type: 'string', enum: ['manual', 'plan'] } } } } },
     },
     async run(a, s) {
-      const rows = await s.insert('shopping', a.items.map(i => pick(i, ['name', 'qty', 'note', 'cat', 'zone', 'source'])));
+      const rows = await s.insert('shopping', a.items.map(i => ({ ...pick(i, ['name', 'qty', 'note', 'cat', 'zone', 'source']), added: brusselsDate() })));
       await s.insert('log', rows.map(r => ({ type: 'shop_add', name: r.name, cat: r.cat, qty: r.qty })));
       return { added: rows.map(r => ({ id: r.id, name: r.name })) };
     },

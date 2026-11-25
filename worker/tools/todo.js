@@ -1,4 +1,4 @@
-// MCP tools for feature: todo (table todos).
+// MCP tools — feature: todo (table todos).
 import { pick } from '../lib/time.js';
 
 const F = ['id', 'title', 'owner', 'due', 'done'];
@@ -8,9 +8,10 @@ export default [
     description: 'Open todos (soonest due first). include_done=true also returns todos finished in the last 14 days.',
     inputSchema: { type: 'object', properties: { include_done: { type: 'boolean' } } },
     async run(a, s) {
-      const rows = await s.select('todos', a.include_done ? '' : '&done=eq.false');
+      const since = new Date(Date.now() - 14 * 864e5).toISOString();
+      const rows = a.include_done ? await s.rows('todos', 'WHERE done = 0 OR done_at >= ?', since) : await s.rows('todos', 'WHERE done = 0');
       rows.sort((x, y) => (x.due || '9').localeCompare(y.due || '9'));
-      return { todos: rows.filter(r => !r.done || (r.done_at || '') >= new Date(Date.now() - 14 * 864e5).toISOString()).map(r => pick(r, F)) };
+      return { todos: rows.map(r => pick(r, F)) };
     },
   },
   {

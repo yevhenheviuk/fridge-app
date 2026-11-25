@@ -1,7 +1,7 @@
 // MCP server (JSON-RPC over Streamable HTTP, stateless).
 // Tools come from tools/<feature>.js — each exports an array of
 // { name, description, inputSchema, run(args, db, env) }.
-import { db } from './lib/supabase.js';
+import { db } from './lib/db.js';
 import fridge from './tools/fridge.js';
 import shopping from './tools/shopping.js';
 import meals from './tools/meals.js';
@@ -47,7 +47,7 @@ export async function handleMcp(request, env) {
   if (request.method === 'GET') {
     // MCP clients asking for an SSE stream: not supported (stateless server)
     if ((request.headers.get('accept') || '').includes('text/event-stream')) return new Response(null, { status: 405 });
-    try { const rows = await db(env).select('items', '&limit=1000'); return Response.json({ ok: true, items: rows.length, tools: LIST.length }); }
+    try { const rows = await db(env).rows('items'); return Response.json({ ok: true, items: rows.length, tools: LIST.length }); }
     catch (e) { return Response.json({ ok: false, error: e.message }, { status: 500 }); }
   }
   if (request.method === 'DELETE') return new Response(null, { status: 204 });

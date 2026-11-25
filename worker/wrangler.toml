@@ -1,9 +1,17 @@
-# Deploy: cd worker && npx wrangler deploy
-# Variables & secrets live in the Cloudflare dashboard (keep_vars keeps them).
+# Deploy:          npx wrangler deploy
+# Schema change:   add migrations/000N_<feature>.sql, then
+#                  npx wrangler d1 migrations apply home --remote
+# Vars & secrets live in the Cloudflare dashboard (keep_vars keeps them).
 name = "fridge-mcp"
 main = "index.js"
 compatibility_date = "2025-09-01"
 keep_vars = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "home"
+database_id = "b91cc42d-442d-4d44-b370-fd4baca3e347"
+migrations_dir = "migrations"
 
 [triggers]
 crons = ["0 * * * *"]

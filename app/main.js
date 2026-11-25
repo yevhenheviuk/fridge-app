@@ -2,8 +2,8 @@
 // Each feature is a self-contained module in features/<id>/index.js.
 // A feature that fails to load or render is isolated: the rest keep working.
 import { $, el, app, pref, savePref, toast } from './core.js';
-import { sb, defineTable, loadAll, startRealtime, setOnChange } from './db.js';
-import { loadPeople, onPeopleChange, persons, me, setMe } from './people.js';
+import { defineTable, startSync, setOnChange, login, logout, hasToken, setOnAuthLost } from './db.js';
+import { persons, me, setMe } from './people.js';
 import { FEATURE_IDS } from './registry.js';
 
 const features = [];
@@ -64,44 +64,29 @@ app.render = render;
 let raf;
 const later = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); };
 setOnChange(later);
-onPeopleChange(later);
 $('settingsBtn').onclick = () => app.go('settings');
 
 async function start() {
   if (started) return;
   for (const f of features) safe(f, 'init', () => f.init?.(roots[f.id]));
   started = true;
-  await Promise.all([loadAll(), loadPeople()]);
-  startRealtime();
+  await startSync();
   render();
 }
 
-/* ---------- auth ---------- */
-async function authDo(kind) {
-  const email = $('aEmail').value.trim(), password = $('aPass').value;
-  if (!email || password.length < 6) { $('aMsg').textContent = 'Введи email і пароль від 6 символів'; return; }
+/* ---------- auth: one household password ---------- */
+const showAuth = on => { $('auth').hidden = !on; if (on) setTimeout(() => $('aPass').focus(), 50); };
+$('authForm').addEventListener('submit', async e => {
+  e.preventDefault();
   $('aMsg').textContent = 'Зачекай…';
-  const redirect = location.origin + location.pathname;
-  const { data, error } = kind === 'up'
-    ? await sb.auth.signUp({ email, password, options: { emailRedirectTo: redirect } })
-    : await sb.auth.signInWithPassword({ email, password });
-  if (error) {
-    $('aMsg').textContent = error.message.includes('Invalid login') ? 'Невірний email або пароль'
-      : error.message.includes('not confirmed') ? 'Спершу підтверди email — лист уже в пошті' : error.message;
-    return;
-  }
-  if (kind === 'up' && !data.session) { $('aMsg').textContent = 'Готово! Підтверди email за посиланням у листі, потім увійди.'; return; }
-  $('aMsg').textContent = '';
-}
-$('authForm').addEventListener('submit', e => { e.preventDefault(); authDo('in'); });
-$('aSignup').onclick = () => authDo('up');
-app.session = null;
-const onSession = s => { app.session = s; $('auth').hidden = !!s; if (s) start(); };
-sb.auth.onAuthStateChange((_ev, s) => onSession(s));
+  try { await login($('aPass').value); $('aMsg').textContent = ''; $('aPass').value = ''; showAuth(false); start(); }
+  catch (err) { $('aMsg').textContent = err.message; }
+});
+setOnAuthLost(() => showAuth(true));
+app.logout = () => { logout(); location.reload(); };
 
 /* ---------- boot ---------- */
 render();
-const { data: { session } } = await sb.auth.getSession();
-onSession(session);
+if (hasToken()) start(); else showAuth(true);
 setInterval(render, 60 * 60 * 1000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

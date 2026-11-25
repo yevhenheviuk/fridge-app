@@ -1,4 +1,4 @@
-// MCP tools for feature: calendar (table events; todos with due dates are in todo tools).
+// MCP tools — feature: calendar (table events; todos with due dates are in todo tools).
 import { brusselsDate, pick } from '../lib/time.js';
 
 export default [
@@ -9,8 +9,7 @@ export default [
     async run(a, s) {
       const from = a.from || brusselsDate();
       const to = brusselsDate(new Date(new Date(from + 'T12:00:00Z').getTime() + (a.days || 30) * 864e5));
-      const rows = await s.select('events', `&d=gte.${from}&d=lte.${to}&order=d.asc`);
-      return { events: rows.map(r => pick(r, ['id', 'd', 'h', 'title'])) };
+      return { events: (await s.rows('events', 'WHERE d >= ? AND d <= ? ORDER BY d, h', from, to)).map(r => pick(r, ['id', 'd', 'h', 'title'])) };
     },
   },
   {

@@ -1,7 +1,8 @@
 // Daily Web Push (VAPID, empty payload: the service worker fetches the text
 // from /push/digest). Subscriptions: table push_subscriptions (hour = Brussels).
-import { rest } from './lib/supabase.js';
+import { db } from './lib/db.js';
 import { brusselsDate, brusselsHour, dayDiff } from './lib/time.js';
+import { CORS, json } from './api.js';
 
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const ub64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4)), c => c.charCodeAt(0));
@@ -23,19 +24,15 @@ async function sendPush(endpoint, env) {
   return fetch(endpoint, { method: 'POST', headers: { TTL: '86400', Urgency: 'normal', Authorization: `vapid t=${unsigned}.${b64u(sig)}, k=${env.VAPID_PUBLIC}` }, body: '' });
 }
 
-async function digestFor(userId, env) {
-  const t = brusselsDate();
+async function digest(env) {
+  const s = db(env), t = brusselsDate();
   const [items, todos, events] = await Promise.all([
-    rest(env, 'GET', `items?user_id=eq.${userId}&select=name,exp`),
-    rest(env, 'GET', `todos?user_id=eq.${userId}&done=eq.false&due=lte.${t}&select=title`).catch(() => []),
-    rest(env, 'GET', `events?user_id=eq.${userId}&d=eq.${t}&select=title,h&order=h.asc`).catch(() => []),
+    s.rows('items', 'WHERE exp IS NOT NULL AND exp <= ?', brusselsDate(new Date(Date.now() + 864e5))),
+    s.rows('todos', 'WHERE done = 0 AND due <= ?', t),
+    s.rows('events', 'WHERE d = ? ORDER BY h', t),
   ]);
   const bucket = { old: [], today: [], tomorrow: [] };
-  for (const i of items) {
-    if (!i.exp) continue;
-    const d = dayDiff(i.exp, t);
-    if (d < 0) bucket.old.push(i.name); else if (d === 0) bucket.today.push(i.name); else if (d === 1) bucket.tomorrow.push(i.name);
-  }
+  for (const i of items) { const d = dayDiff(i.exp, t); (d < 0 ? bucket.old : d === 0 ? bucket.today : bucket.tomorrow).push(i.name); }
   const list = a => a.slice(0, 4).join(', ') + (a.length > 4 ? ` +${a.length - 4}` : '');
   const parts = [];
   if (bucket.today.length) parts.push('🔥 Сьогодні: ' + list(bucket.today));
@@ -48,29 +45,25 @@ async function digestFor(userId, env) {
 
 export async function hourlyPush(env) {
   if (!env.VAPID_PRIVATE) return;
-  const subs = await rest(env, 'GET', `push_subscriptions?hour=eq.${brusselsHour()}&select=id,endpoint`);
-  for (const s of subs) {
+  const s = db(env);
+  for (const sub of await s.rows('push_subscriptions', 'WHERE hour = ?', brusselsHour())) {
     try {
-      const r = await sendPush(s.endpoint, env);
-      if (r.status === 404 || r.status === 410) await rest(env, 'DELETE', `push_subscriptions?id=eq.${s.id}`);
+      const r = await sendPush(sub.endpoint, env);
+      if (r.status === 404 || r.status === 410) await s.remove('push_subscriptions', sub.id);
     } catch (e) { console.log('push failed', e.message); }
   }
 }
 
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
-const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json', ...CORS } });
-
+// /push/key (public), /push/digest and /push/test (need a known subscription endpoint)
 export async function handlePush(request, env, url) {
   try {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     if (url.pathname === '/push/key') return json({ key: env.VAPID_PUBLIC || null });
     if (request.method !== 'POST') return json({ error: 'method' }, 405);
-    let endpoint;
-    try { ({ endpoint } = await request.json()); } catch { return json({ error: 'bad json' }, 400); }
+    const { endpoint } = await request.json().catch(() => ({}));
     if (!endpoint) return json({ error: 'no endpoint' }, 400);
-    const [sub] = await rest(env, 'GET', `push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}&select=user_id`);
-    if (!sub) return json({ error: 'unknown subscription' }, 404);
-    if (url.pathname === '/push/digest') return json(await digestFor(sub.user_id, env));
+    if (!(await db(env).one('push_subscriptions', 'WHERE endpoint = ?', endpoint))) return json({ error: 'unknown subscription' }, 404);
+    if (url.pathname === '/push/digest') return json(await digest(env));
     if (url.pathname === '/push/test') { const r = await sendPush(endpoint, env); return json({ ok: r.ok, status: r.status }, r.ok ? 200 : 502); }
     return json({ error: 'not found' }, 404);
   } catch (e) { return json({ error: e.message }, 500); }

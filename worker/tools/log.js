@@ -1,4 +1,4 @@
-// MCP tools for feature: log (table log).
+// MCP tools — feature: log (table log).
 import { pick } from '../lib/time.js';
 
 export default [
@@ -8,8 +8,7 @@ export default [
     inputSchema: { type: 'object', properties: { days: { type: 'number' } } },
     async run(a, s) {
       const since = new Date(Date.now() - (a.days || 7) * 864e5).toISOString();
-      const rows = await s.select('log', `&t=gte.${since}&order=t.desc&limit=300`);
-      return { log: rows.map(r => pick(r, ['t', 'type', 'name', 'qty'])) };
+      return { log: (await s.rows('log', 'WHERE t >= ? ORDER BY t DESC LIMIT 300', since)).map(r => pick(r, ['t', 'type', 'name', 'qty'])) };
     },
   },
 ];
