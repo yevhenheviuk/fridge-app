@@ -1,6 +1,6 @@
 // Minimal service worker: makes the app installable and opens it offline.
 // Data always comes live from Supabase; only the app shell is cached.
-const CACHE = 'home-v9';
+const CACHE = 'home-v10';
 const WORKER = 'https://fridge-mcp.yevhenheviuk.workers.dev';
 // App shell for offline start. Feature files are cached on first load (network-first below).
 const SHELL = ['./', './index.html', './app/base.css', './app/main.js', './app/core.js', './app/db.js', './app/people.js', './app/registry.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
@@ -14,11 +14,13 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 // Network first for the app itself (so updates arrive), cache as fallback offline.
+// cache: 'no-cache' = always revalidate with the server (cheap 304s). Without it the
+// browser's HTTP cache (GitHub Pages: max-age=600) can mix files from two versions.
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-cache' })
       .then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
       .catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
   );
