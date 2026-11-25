@@ -1,11 +1,12 @@
 # Наш Дім (fridge-app)
 
 Home app for Yevhen and Oleksandra (Sasha): fridge, shopping, meal plans,
-expenses, savings goals, todos, calendar, ideas. UI language: Ukrainian.
+expenses, savings goals, todos. UI language: Ukrainian.
 
 **Stack:** static PWA on GitHub Pages (no build, ES modules) → Cloudflare Worker
 `fridge-mcp` (REST API + MCP server for Claude + Web Push) → Cloudflare D1 `home`.
-One household password; "who am I" is picked per device.
+One household password. Everything is shared — no per-person data, except
+meal plans (kcal per person).
 
 ## Work on one feature at a time
 
@@ -26,14 +27,12 @@ One household password; "who am I" is picked per device.
 | `finance` | 💸 Витрати | expenses | list_expenses, add_expense, delete_expense |
 | `goals` | 🎯 Цілі | goals, goal_contribs, wishes | list_goals, add_goal, contribute_goal |
 | `todo` | ✅ Справи | todos | list_todos, add_todos, complete_todo |
-| `calendar` | 📅 Календар | events | list_events, add_event, delete_event |
-| `ideas` | 💡 Ідеї | ideas, projects, project_notes | list_ideas, add_idea |
 | `log` | 📜 Журнал | log | get_log |
-| `settings` | ⚙️ header | push_subscriptions, xp | — |
+| `settings` | ⚙️ header | push_subscriptions, xp | — (shows `settings(box)` cards of other features) |
 
 ## Adding a feature (e.g. «Рецепти»)
 
-1. `worker/migrations/0002_recipes.sql` — tables need `id TEXT PRIMARY KEY`;
+1. `worker/migrations/0003_recipes.sql` — tables need `id TEXT PRIMARY KEY`;
    use `BOOLEAN` / `JSON` column types for auto conversion. Nothing else to
    register: the API discovers tables from the schema.
 2. `features/recipes/` — `index.js`, `style.css`, `CLAUDE.md` (copy `todo/` as the template).
@@ -50,6 +49,7 @@ export default {
   init(root) {},    // once after login: build skeleton + dialogs (inputs live here)
   render(root) {},  // on every data change while visible: update lists only
   count?(), badge?(), fab?: { label, onClick }, actions?: { … },
+  settings?(box) {},  // optional card on the ⚙️ page (per-device prefs via pref/savePref)
 };
 ```
 Data: `data.<table>`, `db.<table>.add/update/remove`, `rpc(fn, args)`, `api(path)` from `app/db.js`.
@@ -59,7 +59,7 @@ Render with `el()` — never innerHTML with user data. CSS selectors start with
 ## Conventions
 
 - Dates `YYYY-MM-DD` Europe/Brussels; money in euros (REAL).
-- Person ids `yevhen`, `oleksandra`; owner `both` = shared.
+- Person ids `yevhen`, `oleksandra` exist only in meal plans (`kcal: {yevhen, oleksandra}`).
 - `trig=true` items are trigger foods for Yevhen — never suggest them to him.
 - Never save a meal plan the user hasn't approved.
 - Repo is **public**: no personal data or secrets in commits.

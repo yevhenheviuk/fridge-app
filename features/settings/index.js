@@ -2,7 +2,7 @@
 // daily push reminder, logout. Opened from the header.
 import { el, toast, app } from '../../app/core.js';
 import { api, WORKER } from '../../app/db.js';
-import { persons, me, setMe, xpOf, houseXp, level } from '../../app/people.js';
+import { houseXp, level } from '../../app/people.js';
 
 const R = {};
 let pushSub = null, pushChecked = false;
@@ -10,7 +10,6 @@ const hh = h => String(h).padStart(2, '0') + ':00';
 const u8 = b => Uint8Array.from(atob(b.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - b.length % 4) % 4)), c => c.charCodeAt(0));
 
 function init(root) {
-  R.who = el('div', { class: 'chips' });
   R.lvl = el('div');
   R.pushStatus = el('p', { class: 'sub' }, 'Перевіряю…');
   R.hour = el('select', { class: 'inp', 'aria-label': 'Година нагадування' }, ...Array.from({ length: 24 }, (_, h) => el('option', { value: String(h) }, hh(h))));
@@ -18,9 +17,9 @@ function init(root) {
   R.toggle = el('button', { class: 'btn btn-main', disabled: true, onclick: togglePush }, 'Увімкнути');
   R.test = el('button', { class: 'btn', style: 'margin-top:8px', hidden: true, onclick: testPush }, 'Надіслати тест');
   root.append(
-    el('section', { class: 'card' }, el('h2', {}, '👤 Хто я на цьому пристрої'),
-      el('p', { class: 'sub' }, 'Від цього залежить, чиї витрати, внески й думки.'), R.who),
     el('section', { class: 'card' }, el('h2', {}, '🏠 Рівень дому'), R.lvl),
+    // cards contributed by features: `settings(box)` in their index.js
+    ...Object.values(app.features).filter(f => f.id !== 'settings' && f.settings).map(f => { const box = el('section', { class: 'card' }); f.settings(box); return box; }),
     el('section', { class: 'card' }, el('h2', {}, '🔔 Щоденне нагадування'), R.pushStatus,
       el('div', { class: 'addrow', style: 'margin-top:0' }, R.hour, R.toggle), R.test),
     el('div', { class: 'account' }, el('span', {}, 'Дані: Cloudflare D1 · Claude бачить їх через MCP'), el('button', { class: 'btn', onclick: () => app.logout() }, 'Вийти')));
@@ -28,15 +27,11 @@ function init(root) {
 }
 
 function render() {
-  const ps = persons().filter(p => p.id !== 'me');
-  R.who.replaceChildren(...(ps.length ? ps.map(p => el('button', { class: 'chip', 'aria-pressed': String(me() === p.id), onclick: () => { setMe(p.id); toast(`Привіт, ${p.name}!`); } }, p.name))
-    : [el('span', { class: 'hint' }, 'Людей ще немає — попроси Claude заповнити профілі (set_profiles).')]));
   const H = level(houseXp());
   R.lvl.replaceChildren(
     el('p', { class: 'lvl num' }, `Рівень ${H.l}`, el('small', {}, ` · ${H.p}/100 XP`)),
     el('div', { class: 'bar' }, el('i', { style: `width:${H.p}%` })),
-    el('p', { class: 'hint' }, ps.map(p => `${p.name}: ${xpOf(p.id)} XP`).join(' · ') || ''),
-    el('p', { class: 'hint' }, 'XP за справи (+10), внески в цілі, ідеї, витрати й закриті проекти.'));
+    el('p', { class: 'hint' }, 'Спільний: XP за справи (+10), внески в цілі й витрати.'));
   if (!pushChecked) { pushChecked = true; pushState(); }
 }
 

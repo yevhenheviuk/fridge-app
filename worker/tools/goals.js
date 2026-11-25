@@ -4,13 +4,12 @@ import { brusselsDate, pick } from '../lib/time.js';
 export default [
   {
     name: 'list_goals',
-    description: 'Savings goals (saved / price) with contributions per person, plus the wishlist.',
+    description: 'Shared savings goals (saved / price) plus the wishlist.',
     inputSchema: { type: 'object', properties: {} },
     async run(a, s) {
       const [goals, contribs, wishes] = await Promise.all([s.rows('goals', 'ORDER BY created_at DESC'), s.rows('goal_contribs'), s.rows('wishes')]);
       return {
-        goals: goals.map(g => ({ ...pick(g, ['id', 'emoji', 'title', 'price', 'saved', 'done_at']),
-          by_person: contribs.filter(c => c.goal_id === g.id).reduce((m, c) => { m[c.person || '?'] = (m[c.person || '?'] || 0) + c.amount; return m; }, {}) })),
+        goals: goals.map(g => ({ ...pick(g, ['id', 'emoji', 'title', 'price', 'saved', 'done_at']), contributions: contribs.filter(c => c.goal_id === g.id).length })),
         wishes: wishes.map(w => pick(w, ['id', 'title', 'price'])),
       };
     },
@@ -27,11 +26,11 @@ export default [
   },
   {
     name: 'contribute_goal',
-    description: 'Put money into a goal (capped at what is left; closes the goal when full). person: "yevhen" | "oleksandra".',
-    inputSchema: { type: 'object', required: ['goal_id', 'amount', 'person'], properties: { goal_id: { type: 'string' }, amount: { type: 'number' }, person: { type: 'string' } } },
+    description: 'Put money into a goal (capped at what is left; closes the goal when full).',
+    inputSchema: { type: 'object', required: ['goal_id', 'amount'], properties: { goal_id: { type: 'string' }, amount: { type: 'number' } } },
     async run(a, s) {
-      const r = await s.goalContribute(a.goal_id, a.person, a.amount, brusselsDate());
-      if (r.added > 0) await s.addXp(a.person, Math.max(5, Math.round(r.added / 10)) + (r.closed ? 50 : 0));
+      const r = await s.goalContribute(a.goal_id, '', a.amount, brusselsDate());
+      if (r.added > 0) await s.addXp('home', Math.max(5, Math.round(r.added / 10)) + (r.closed ? 50 : 0));
       return r;
     },
   },

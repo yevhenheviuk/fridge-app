@@ -44,12 +44,16 @@ export default [
   },
   {
     name: 'remove_items',
-    description: 'Remove products from stock and log why: used (eaten/cooked) or tossed (thrown away).',
-    inputSchema: { type: 'object', required: ['ids', 'reason'], properties: { ids: { type: 'array', items: { type: 'string' } }, reason: { type: 'string', enum: ['used', 'tossed'] } } },
+    description: 'Mark products as used (eaten, cooked or gone) — removes them from stock and logs "used". add_to_shopping=true also puts them back on the shopping list.',
+    inputSchema: { type: 'object', required: ['ids'], properties: { ids: { type: 'array', items: { type: 'string' } }, add_to_shopping: { type: 'boolean' } } },
     async run(a, s) {
       const rows = await s.remove('items', a.ids);
-      if (rows.length) await s.insert('log', logRows(rows, a.reason));
-      return { removed: rows.map(r => r.name), reason: a.reason };
+      if (rows.length) await s.insert('log', logRows(rows, 'used'));
+      if (rows.length && a.add_to_shopping) {
+        await s.insert('shopping', rows.map(r => ({ name: r.name, cat: r.cat, zone: r.zone, added: brusselsDate() })));
+        await s.insert('log', logRows(rows, 'shop_add'));
+      }
+      return { used: rows.map(r => r.name), added_to_shopping: !!a.add_to_shopping };
     },
   },
 ];

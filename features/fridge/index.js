@@ -1,5 +1,5 @@
 // 🧊 Запаси — what's in the fridge/freezer/pantry, sorted by "eat first".
-import { el, html, toast, today, iso, plusDays, parse, daysLeft, plural, pDays, pref, savePref } from '../../app/core.js';
+import { el, html, toast, today, iso, plusDays, parse, daysLeft, plural, pDays, pref, savePref, fmtDate } from '../../app/core.js';
 import { data, db } from '../../app/db.js';
 import { persons } from '../../app/people.js';
 import { CATS, ZONES, cat, zoneName, guessCat, norm } from '../../shared/food.js';
@@ -101,13 +101,13 @@ function render() {
     list.forEach(it => {
       const s = status(it);
       const meta = [it.qty, zoneFilter === 'all' ? zoneName(it.zone) : null, (sortBy === 'new' || sortBy === 'old') ? addedTxt(it) : s.txt].filter(Boolean).join(' · ');
-      ul.append(el('li', { class: 'item', style: `--c:${s.c}` },
+      ul.append(swipeable(it, el('div', { class: 'item', style: `--c:${s.c}` },
         el('span', { class: 'emoji', 'aria-hidden': 'true' }, cat(it.cat).e),
         el('button', { class: 'body', onclick: () => openSheet(it), 'aria-label': `Змінити: ${it.name}` },
           el('span', { class: 'name' }, it.pinned ? el('span', { class: 'pin' }, '● ') : null, it.name),
           el('span', { class: 'meta' }, it.trig ? el('span', { class: 'trig' }, '⚠ тригер · ') : null, meta)),
         el('span', { class: 'days', 'aria-hidden': 'true' }, el('b', {}, String(s.big)), el('small', {}, s.small)),
-        el('button', { class: 'used', title: 'Використав', 'aria-label': `Використав: ${it.name}`, onclick: () => removeItem(it, 'Використано') }, '✓')));
+        el('button', { class: 'used', title: 'Використав', 'aria-label': `Використав: ${it.name}`, onclick: () => useItem(it, false) }, '✓'))));
     });
     R.groups.append(el('section', { class: 'group' }, title ? el('h2', {}, title) : null, ul));
   });
@@ -142,7 +142,7 @@ function initSheet() {
     </div>
     <div class="actions" data-r="delRow" hidden>
       <button type="button" class="btn" data-r="used">Використав</button>
-      <button type="button" class="btn btn-danger" data-r="toss">Викинув</button>
+      <button type="button" class="btn" data-r="usedShop">Використав + у покупки</button>
     </div>
     <p class="hint" data-r="hint">Після додавання форма очиститься, щоб одразу внести наступне.</p>
   </form>
@@ -151,8 +151,8 @@ function initSheet() {
   const r = k => $s(`[data-r="${k}"]`);
   $s('#fr-name').addEventListener('input', () => { if (catTouched) return; form.cat = guessCat($s('#fr-name').value); chips(r('cat'), CATS, 'cat'); });
   r('close').onclick = () => R.dlg.close();
-  r('used').onclick = () => { const it = editing; R.dlg.close(); removeItem(it, 'Використано'); };
-  r('toss').onclick = () => { const it = editing; R.dlg.close(); removeItem(it, 'Викинуто'); };
+  r('used').onclick = () => { const it = editing; R.dlg.close(); useItem(it, false); };
+  r('usedShop').onclick = () => { const it = editing; R.dlg.close(); useItem(it, true); };
   $s('form').addEventListener('submit', submit);
   R.r = r;
 }
@@ -198,18 +198,98 @@ async function submit(e) {
   catTouched = false; form.cat = 'other'; chips(R.r('cat'), CATS, 'cat'); $s('#fr-name').focus();
 }
 
-/* ---------- used / tossed ---------- */
-async function removeItem(it, verb) {
+/* ---------- used (+ optionally back on the shopping list), with undo ---------- */
+async function useItem(it, toShop) {
   if (!it) return;
-  await db.items.remove(it.id);
-  logEvent(verb === 'Використано' ? 'used' : 'tossed', it);
-  const st = stapleFor(it.name);
-  if (st) { setTimeout(() => toast(inStock(st.name) ? `${verb}: ${it.name}` : `${verb}: ${it.name} · вже в покупках`), 50); return; }
-  if (data.shopping.some(s => norm(s.name) === norm(it.name))) { toast(`${verb}: ${it.name}`); return; }
-  toast(`${verb}: ${it.name}`, {
-    label: 'Докупити',
-    fn: () => db.shopping.add({ name: it.name, cat: it.cat, zone: it.zone, added: iso(today()) }).then(() => { logEvent('shop_add', it); toast('Додано в покупки'); }),
+  if (!(await db.items.remove(it.id))) return;
+  const logged = await logEvent('used', it);
+  let shopRow = null, shopLog = null;
+  if (toShop && !data.shopping.some(s => norm(s.name) === norm(it.name))) {
+    shopRow = (await db.shopping.add({ name: it.name, cat: it.cat, zone: it.zone, added: iso(today()) }))?.[0] || null;
+    if (shopRow) shopLog = await logEvent('shop_add', it);
+  }
+  const st = !toShop && stapleFor(it.name);
+  const msg = toShop ? `${it.name} → у покупках` : st && !inStock(st.name) ? `Використано: ${it.name} · вже в покупках` : `Використано: ${it.name}`;
+  toast(msg, {
+    label: 'Повернути',
+    fn: async () => {
+      await db.items.add(it);
+      if (shopRow) await db.shopping.remove(shopRow.id);
+      if (logged?.[0]) await db.log.remove(logged[0].id);
+      if (shopLog?.[0]) await db.log.remove(shopLog[0].id);
+    },
   });
+}
+
+/* ---------- gestures: swipe → used + shop, swipe ← used, hold → configurable ---------- */
+export const HOLD = [
+  { id: '+1', n: '+1 день' }, { id: '+2', n: '+2 дні' }, { id: '+3', n: '+3 дні' }, { id: '+7', n: '+7 днів' },
+  { id: '-1', n: '−1 день' }, { id: 'clear', n: 'Прибрати дату' }, { id: 'pin', n: 'З’їсти першим (вкл/викл)' }, { id: 'edit', n: 'Відкрити редагування' },
+];
+const holdId = () => (HOLD.some(h => h.id === pref('fridge.hold', '+1')) ? pref('fridge.hold', '+1') : '+1');
+
+async function holdAction(it) {
+  const a = holdId();
+  if (a === 'edit') return openSheet(it);
+  if (a === 'pin') { await db.items.update(it.id, { pinned: !it.pinned }); toast(it.pinned ? `${it.name}: звичайний порядок` : `${it.name}: з’їсти першим`); return; }
+  let exp = null;
+  if (a !== 'clear') { const d = it.exp ? parse(it.exp) : today(); d.setDate(d.getDate() + Number(a)); exp = iso(d); }
+  if (!(await db.items.update(it.id, { exp }))) return;
+  toast(exp ? `${it.name}: до ${fmtDate(exp)}` : `${it.name}: без дати`, { label: 'Повернути', fn: () => db.items.update(it.id, { exp: it.exp }) });
+}
+
+const TRIGGER = 0.35; // share of row width to commit a swipe
+function swipeable(it, row) {
+  const li = el('li', { class: 'swipe' },
+    el('div', { class: 'swipe-bg', 'aria-hidden': 'true' }, el('span', { class: 'l' }, '✓ + 🛒'), el('span', { class: 'r' }, '✓')), row);
+  let x0 = null, y0 = 0, dx = 0, dragging = false, timer = null, suppress = false;
+  const reset = () => { row.style.transform = ''; li.classList.remove('dragging', 'go', 'to-l', 'to-r'); };
+  li.addEventListener('pointerdown', e => {
+    if (e.button || e.target.closest('.used')) return;
+    x0 = e.clientX; y0 = e.clientY; dx = 0; dragging = false; suppress = false;
+    clearTimeout(timer);
+    timer = setTimeout(() => { if (x0 === null || dragging) return; suppress = true; x0 = null; navigator.vibrate?.(15); holdAction(it); }, 500);
+  });
+  li.addEventListener('pointermove', e => {
+    if (x0 === null) return;
+    const mx = e.clientX - x0, my = e.clientY - y0;
+    if (Math.abs(mx) > 8 || Math.abs(my) > 8) clearTimeout(timer);
+    if (!dragging) {
+      if (Math.abs(mx) > 12 && Math.abs(mx) > Math.abs(my) * 1.5) { dragging = true; li.classList.add('dragging'); try { li.setPointerCapture(e.pointerId); } catch { /* ok */ } }
+      else if (Math.abs(my) > 12) { x0 = null; return; }
+      else return;
+    }
+    dx = mx;
+    row.style.transform = `translateX(${dx}px)`;
+    li.classList.toggle('to-r', dx > 0); li.classList.toggle('to-l', dx < 0);
+    li.classList.toggle('go', Math.abs(dx) > li.offsetWidth * TRIGGER);
+  });
+  const end = () => {
+    clearTimeout(timer);
+    if (x0 === null) return;
+    x0 = null;
+    if (!dragging) return;
+    suppress = true;
+    if (Math.abs(dx) > li.offsetWidth * TRIGGER) {
+      row.style.transform = `translateX(${dx > 0 ? 110 : -110}%)`;
+      setTimeout(() => useItem(it, dx > 0), 160);
+    } else reset();
+  };
+  li.addEventListener('pointerup', end);
+  li.addEventListener('pointercancel', () => { clearTimeout(timer); x0 = null; reset(); });
+  li.addEventListener('contextmenu', e => e.preventDefault());
+  li.addEventListener('click', e => { if (suppress) { e.stopPropagation(); e.preventDefault(); suppress = false; } }, true);
+  return li;
+}
+
+/* ---------- settings card (rendered by the settings feature) ---------- */
+function settingsCard(box) {
+  const draw = () => box.replaceChildren(
+    el('h2', {}, '🧊 Утримання продукту'),
+    el('p', { class: 'sub' }, 'Що робить довге натискання на продукт у Запасах.'),
+    el('div', { class: 'chips' }, ...HOLD.map(h => el('button', { class: 'chip', 'aria-pressed': String(holdId() === h.id), onclick: () => { savePref('fridge.hold', h.id); draw(); } }, h.n))),
+    el('p', { class: 'hint' }, 'Свайп → використав і в покупки · свайп ← просто використав.'));
+  draw();
 }
 
 export default {
@@ -218,6 +298,7 @@ export default {
   init, render,
   count: () => (data.items.length ? `${data.items.length} ${plural(data.items.length, 'продукт', 'продукти', 'продуктів')}` : ''),
   fab: { label: '+ Додати', onClick: () => openSheet() },
+  settings: settingsCard,
   actions: {
     // Open the add sheet prefilled from a shopping entry ("Купив — куди поклав?")
     openSheet: (item, prefill) => openSheet(item, prefill),

@@ -1,7 +1,7 @@
 // 💸 Витрати — quick expense entry ("aldi 23"), month total, by-category bars.
 import { el, toast, today, iso, todayIso, eur, fmtDate, MONTHS, confirmTap } from '../../app/core.js';
 import { data, db } from '../../app/db.js';
-import { meOrFirst, personName, addXp, persons } from '../../app/people.js';
+import { addXp } from '../../app/people.js';
 import { EXP_CATS, expCat, catOf, parseExpense } from './parse.js';
 
 const R = {};
@@ -27,7 +27,7 @@ async function add(e) {
   const p = parseExpense(R.inp.value);
   if (!p || !(p.amount > 0)) { toast('Напиши назву і суму, напр. «aldi 23»'); return; }
   const cat = catOf(p.title), c = expCat(cat);
-  const ok = await db.expenses.add({ title: p.title.slice(0, 100), amount: p.amount, cat, person: meOrFirst(), d: todayIso() });
+  const ok = await db.expenses.add({ title: p.title.slice(0, 100), amount: p.amount, cat, d: todayIso() });
   if (!ok) return;
   R.inp.value = ''; R.inp.focus();
   toast(`${c.e} ${c.n}: −${eur(p.amount)}`);
@@ -44,14 +44,11 @@ function render() {
   const by = EXP_CATS.map(c => ({ ...c, v: m.filter(e => e.cat === c.k).reduce((a, e) => a + Number(e.amount), 0) })).filter(c => c.v > 0).sort((a, b) => b.v - a.v);
   const fun = by.filter(c => c.k === 'cafe' || c.k === 'fun').reduce((a, c) => a + c.v, 0);
   const goal = (data.goals || []).filter(g => Number(g.saved) < Number(g.price)).sort((a, b) => b.saved / b.price - a.saved / a.price)[0];
-  const ps = persons().filter(p => p.id !== 'me');
-  const perPerson = ps.length > 1 ? ps.map(p => `${p.name}: ${eur(m.filter(e => e.person === p.id).reduce((a, e) => a + Number(e.amount), 0))}`).join(' · ') : '';
 
   R.hero.replaceChildren(...[
     el('p', { class: 'hero-kicker' }, `${MONTHS[t.getMonth()]} ${t.getFullYear()}`),
     el('p', { class: 'hero-name num' }, eur(tot)),
     prev ? el('p', { class: 'hero-sub' }, `Минулого місяця: ${eur(prev)}`) : null,
-    perPerson && tot ? el('p', { class: 'hero-sub' }, perPerson) : null,
     goal && fun > 0 ? el('p', { class: 'hero-sub' }, `Кафе та ігри: ${eur(fun)}. Це ${Math.round(fun / goal.price * 100)}% цілі «${goal.title}».`) : null].filter(Boolean));
 
   const max = by[0]?.v || 1;
@@ -62,10 +59,9 @@ function render() {
   const list = showAll ? exps : exps.slice(0, 20);
   R.list.replaceChildren(...list.map(e => {
     const c = expCat(e.cat);
-    const who = ps.length > 1 && e.person ? personName(e.person) : '';
     return el('li', { class: 'row' },
       el('button', { class: 'ic', 'aria-label': `Категорія: ${c.n}. Змінити`, title: c.n, onclick: () => cycleCat(e) }, c.e),
-      el('span', { style: 'min-width:0' }, el('span', { class: 'name' }, e.title), el('span', { class: 'meta' }, [fmtDate(e.d), who].filter(Boolean).join(' · '))),
+      el('span', { style: 'min-width:0' }, el('span', { class: 'name' }, e.title), el('span', { class: 'meta' }, fmtDate(e.d))),
       el('span', { class: 'rt num' }, `−${eur(e.amount)}`),
       el('button', { class: 'x', 'aria-label': `Видалити: ${e.title}`, onclick: ev => confirmTap(ev.currentTarget, () => db.expenses.remove(e.id)) }, '✕'));
   }));

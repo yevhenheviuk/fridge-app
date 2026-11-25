@@ -2,7 +2,7 @@
 
 One home app for two: fridge inventory with expiry priorities, shopping list
 with staples, meal plans with kcal for two people, expenses, savings goals,
-todos, calendar and an ideas → projects board. Built with AI (Claude).
+and shared todos. Built with AI (Claude).
 
 - **Frontend:** static PWA on GitHub Pages (this repo root, no build step)
 - **Backend:** Cloudflare Worker `fridge-mcp` + D1 database `home` (`worker/`)

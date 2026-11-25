@@ -24,10 +24,10 @@ export function shopEntries() {
   return out;
 }
 
-// Activity log (feature: log). Types: add, bought, used, tossed, shop_add, meal.
+// Activity log (feature: log). Types: add, bought, used, shop_add, meal. Returns inserted rows.
 export function logEvent(type, it) {
-  if (!db.log) return;
+  if (!db.log) return Promise.resolve(null);
   const d = { t: new Date().toISOString(), type, name: it.name || '', cat: it.cat || 'other' };
   if (it.qty) d.qty = it.qty;
-  db.log.add(d);
+  return db.log.add(d);
 }

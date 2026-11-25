@@ -8,8 +8,6 @@ export const FEATURE_IDS = [
   'finance',    // 💸 Витрати
   'goals',      // 🎯 Цілі
   'todo',       // ✅ Справи
-  'calendar',   // 📅 Календар
-  'ideas',      // 💡 Ідеї
   'log',        // 📜 Журнал
   'settings',   // ⚙️ (header button, not in nav)
 ];

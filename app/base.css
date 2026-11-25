@@ -44,8 +44,6 @@ h1{font:700 1.5rem/1.1 Unbounded,system-ui,sans-serif;margin:0;letter-spacing:-.
 .view-btn .badge{position:absolute;top:3px;right:6px;margin:0}
 .view-btn[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
 .badge{display:inline-block;min-width:1.3em;padding:0 5px;margin-left:4px;border-radius:999px;background:var(--hot);color:#fff;font-size:.72rem;line-height:1.3em;text-align:center}
-.me-banner{margin-top:12px;background:var(--surface);border-radius:16px;padding:12px 14px}
-.me-banner p{margin:0 0 8px;font-weight:600}
 
 /* hero card (big number / headline) */
 .hero{margin:16px 0 8px;padding:20px 18px 18px;border-radius:22px;background:var(--surface);position:relative;overflow:hidden}

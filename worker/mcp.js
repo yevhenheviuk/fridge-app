@@ -9,15 +9,13 @@ import log from './tools/log.js';
 import finance from './tools/finance.js';
 import goals from './tools/goals.js';
 import todo from './tools/todo.js';
-import calendar from './tools/calendar.js';
-import ideas from './tools/ideas.js';
 
 const SERVER = { name: 'fridge-app', version: '2.0.0' };
-const ALL = [...fridge, ...shopping, ...meals, ...log, ...finance, ...goals, ...todo, ...calendar, ...ideas];
+const ALL = [...fridge, ...shopping, ...meals, ...log, ...finance, ...goals, ...todo];
 const BY_NAME = Object.fromEntries(ALL.map(t => [t.name, t]));
 const LIST = ALL.map(({ run, ...def }) => def);
-const INSTRUCTIONS = 'Home app of Yevhen and Oleksandra (Sasha): fridge, shopping, meal plans, expenses, savings goals, todos, calendar, ideas. '
-  + 'Dates are Europe/Brussels, money is euros. Person ids: "yevhen", "oleksandra"; owner "both" = shared. '
+const INSTRUCTIONS = 'Home app of Yevhen and Oleksandra (Sasha): fridge, shopping, meal plans, expenses, savings goals, todos. '
+  + 'Dates are Europe/Brussels, money is euros. Everything is shared between the two; person ids "yevhen", "oleksandra" only matter for meal-plan kcal. '
   + 'Items with trig=true are trigger foods for Yevhen — only for Sasha. Never save a meal plan the user has not approved.';
 
 async function handleRpc(msg, env) {

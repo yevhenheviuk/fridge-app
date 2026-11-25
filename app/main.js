@@ -3,7 +3,7 @@
 // A feature that fails to load or render is isolated: the rest keep working.
 import { $, el, app, pref, savePref, toast } from './core.js';
 import { defineTable, startSync, setOnChange, login, logout, hasToken, setOnAuthLost } from './db.js';
-import { persons, me, setMe } from './people.js';
+import './people.js';
 import { FEATURE_IDS } from './registry.js';
 
 const features = [];
@@ -51,11 +51,6 @@ function render() {
   });
   $('settingsBtn').setAttribute('aria-pressed', String(app.view === 'settings'));
   for (const x of features) roots[x.id].hidden = x.id !== app.view;
-  const ps = persons();
-  $('meBanner').hidden = !started || ps.length < 2 || !!me();
-  if (!$('meBanner').hidden) {
-    $('meChips').replaceChildren(...ps.map(p => el('button', { class: 'chip', onclick: () => { setMe(p.id); toast(`Привіт, ${p.name}!`); } }, p.name)));
-  }
   $('fab').hidden = !(started && f.fab);
   if (f.fab) { $('fab').textContent = f.fab.label; $('fab').onclick = f.fab.onClick; }
   if (started) safe(f, 'render', () => f.render?.(roots[f.id]));

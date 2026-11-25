@@ -1,7 +1,7 @@
 // MCP tools — feature: todo (table todos).
 import { pick } from '../lib/time.js';
 
-const F = ['id', 'title', 'owner', 'due', 'done'];
+const F = ['id', 'title', 'due', 'done'];
 export default [
   {
     name: 'list_todos',
@@ -16,9 +16,9 @@ export default [
   },
   {
     name: 'add_todos',
-    description: 'Add todos. owner: "both" (default) | "yevhen" | "oleksandra". due: YYYY-MM-DD or omitted.',
-    inputSchema: { type: 'object', required: ['todos'], properties: { todos: { type: 'array', items: { type: 'object', required: ['title'], properties: { title: { type: 'string' }, owner: { type: 'string' }, due: { type: 'string' } } } } } },
-    async run(a, s) { return { added: (await s.insert('todos', a.todos.map(t => pick(t, ['title', 'owner', 'due'])))).map(r => pick(r, F)) }; },
+    description: 'Add shared todos. due: YYYY-MM-DD or omitted.',
+    inputSchema: { type: 'object', required: ['todos'], properties: { todos: { type: 'array', items: { type: 'object', required: ['title'], properties: { title: { type: 'string' }, due: { type: 'string' } } } } } },
+    async run(a, s) { return { added: (await s.insert('todos', a.todos.map(t => pick(t, ['title', 'due'])))).map(r => pick(r, F)) }; },
   },
   {
     name: 'complete_todo',

@@ -1,13 +1,15 @@
 // 📜 Журнал — kitchen activity log (last 500 events) + 7-day stats.
+// There is no "tossed" any more: old tossed rows are shown as used.
 // Writers: shared/kitchen.js logEvent() and the worker's MCP tools.
 import { el, today, plural } from '../../app/core.js';
 import { data, db } from '../../app/db.js';
 
 const LOGT = {
   add: { i: '➕', n: 'Додано в запаси' }, bought: { i: '🛍', n: 'Куплено' }, used: { i: '✅', n: 'Використано' },
-  tossed: { i: '🗑', n: 'Викинуто' }, shop_add: { i: '📝', n: 'У список покупок' }, meal: { i: '🍽', n: 'Приготовано' },
+  tossed: { i: '✅', n: 'Використано' }, shop_add: { i: '📝', n: 'У список покупок' }, meal: { i: '🍽', n: 'Приготовано' },
 };
-const FILTERS = [['all', 'Усе'], ['used', 'Використано'], ['tossed', 'Викинуто'], ['in', 'Додано й куплено'], ['shop_add', 'Покупки'], ['meal', 'Раціон']];
+const FILTERS = [['all', 'Усе'], ['used', 'Використано'], ['in', 'Додано й куплено'], ['shop_add', 'Покупки'], ['meal', 'Раціон']];
+const isUsed = l => l.type === 'used' || l.type === 'tossed'; // old "tossed" rows count as used
 const R = {};
 let filter = 'all';
 
@@ -27,15 +29,13 @@ function render() {
   const week = Date.now() - 7 * 864e5;
   const recent = logs.filter(l => new Date(l.t).getTime() >= week);
   const cnt = t => recent.filter(l => l.type === t).length;
-  const used = cnt('used'), tossed = cnt('tossed');
-  const rate = used + tossed ? Math.round(used / (used + tossed) * 100) : null;
   R.stats.replaceChildren(
-    el('div', { class: 'stat good' }, el('b', {}, String(used)), el('span', {}, 'використано')),
-    el('div', { class: 'stat' + (tossed ? ' bad' : '') }, el('b', {}, String(tossed)), el('span', {}, 'викинуто')),
+    el('div', { class: 'stat good' }, el('b', {}, String(recent.filter(isUsed).length)), el('span', {}, 'використано')),
     el('div', { class: 'stat' }, el('b', {}, String(cnt('bought') + cnt('add'))), el('span', {}, 'додано')),
-    el('div', { class: 'stat' + (rate !== null && rate >= 90 ? ' good' : '') }, el('b', {}, rate === null ? '—' : rate + '%'), el('span', {}, 'вчасно')));
+    el('div', { class: 'stat' }, el('b', {}, String(cnt('shop_add'))), el('span', {}, 'у покупки')),
+    el('div', { class: 'stat' }, el('b', {}, String(cnt('meal'))), el('span', {}, 'страв')));
   R.tabs.replaceChildren(...FILTERS.map(([id, n]) => el('button', { class: 'tab', 'aria-pressed': String(filter === id), onclick: () => { filter = id; render(); } }, n)));
-  const list = logs.filter(l => filter === 'all' || (filter === 'in' ? (l.type === 'add' || l.type === 'bought') : l.type === filter));
+  const list = logs.filter(l => filter === 'all' || (filter === 'in' ? (l.type === 'add' || l.type === 'bought') : filter === 'used' ? isUsed(l) : l.type === filter));
   R.list.replaceChildren();
   if (!list.length) { R.list.append(el('p', { class: 'empty' }, logs.length ? 'Тут поки нічого.' : 'Журнал почнеться з наступної дії: додай, використай чи купи щось — і воно з’явиться тут.')); return; }
   const groups = new Map();

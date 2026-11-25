@@ -1,8 +1,8 @@
-// 🎯 Цілі — savings goals with progress, contributions per person, wishlist.
+// 🎯 Цілі — shared savings goals with progress, contributions, wishlist.
 // Contribution is atomic on the server: rpc goal_contribute (caps + closes goal).
 import { el, toast, eur, num, confirmTap, todayIso } from '../../app/core.js';
 import { data, db, rpc } from '../../app/db.js';
-import { meOrFirst, personName, addXp } from '../../app/people.js';
+import { addXp } from '../../app/people.js';
 
 const R = {};
 const pct = g => Math.min(100, Number(g.saved) / Number(g.price) * 100);
@@ -39,7 +39,7 @@ async function addWish(e) {
 async function contribute(g, input) {
   const a = num(input.value);
   if (!(a > 0)) { toast('Введи суму'); input.focus(); return; }
-  const r = await rpc('goal_contribute', { goal: g.id, person: meOrFirst(), amount: a, d: todayIso() });
+  const r = await rpc('goal_contribute', { goal: g.id, amount: a, d: todayIso() });
   if (!r) return;
   input.value = '';
   await Promise.all([db.goals.load(), db.goal_contribs.load()]);
@@ -62,12 +62,10 @@ async function wishToGoal(w, row) {
 
 function goalCard(g) {
   const done = isDone(g);
-  const by = data.goal_contribs.filter(c => c.goal_id === g.id).reduce((m, c) => { m[c.person] = (m[c.person] || 0) + Number(c.amount); return m; }, {});
-  const who = Object.entries(by).filter(([p]) => p).map(([p, s]) => `${personName(p) || p}: ${eur(s)}`).join(' · ');
   const inp = el('input', { class: 'inp', inputmode: 'decimal', placeholder: 'Сума, €', 'aria-label': `Внести в «${g.title}»` });
   return el('div', { class: 'goal' + (done ? ' done' : '') },
     el('div', { class: 'g-top' }, el('span', { class: 'g-em' }, g.emoji || '⭐'),
-      el('span', { style: 'min-width:0' }, el('span', { class: 'name wrap-text' }, g.title), who ? el('span', { class: 'meta' }, who) : null),
+      el('span', { style: 'min-width:0' }, el('span', { class: 'name wrap-text' }, g.title)),
       el('button', { class: 'x', 'aria-label': `Видалити ціль: ${g.title}`, onclick: e => confirmTap(e.currentTarget, () => db.goals.remove(g.id)) }, '✕')),
     el('div', { class: 'bar' }, el('i', { style: `width:${pct(g)}%` })),
     el('div', { class: 'g-meta num' }, el('span', {}, el('b', {}, eur(g.saved)), ` з ${eur(g.price)}`),

@@ -26,10 +26,9 @@ async function sendPush(endpoint, env) {
 
 async function digest(env) {
   const s = db(env), t = brusselsDate();
-  const [items, todos, events] = await Promise.all([
+  const [items, todos] = await Promise.all([
     s.rows('items', 'WHERE exp IS NOT NULL AND exp <= ?', brusselsDate(new Date(Date.now() + 864e5))),
     s.rows('todos', 'WHERE done = 0 AND due <= ?', t),
-    s.rows('events', 'WHERE d = ? ORDER BY h', t),
   ]);
   const bucket = { old: [], today: [], tomorrow: [] };
   for (const i of items) { const d = dayDiff(i.exp, t); (d < 0 ? bucket.old : d === 0 ? bucket.today : bucket.tomorrow).push(i.name); }
@@ -38,7 +37,6 @@ async function digest(env) {
   if (bucket.today.length) parts.push('🔥 Сьогодні: ' + list(bucket.today));
   if (bucket.tomorrow.length) parts.push('⏳ Завтра: ' + list(bucket.tomorrow));
   if (bucket.old.length) parts.push('⚠️ Прострочено: ' + list(bucket.old));
-  if (events.length) parts.push('📌 ' + list(events.map(e => (e.h ? e.h + ' ' : '') + e.title)));
   if (todos.length) parts.push('✅ Справи: ' + list(todos.map(x => x.title)));
   return { title: '🏠 Наш Дім', body: parts.length ? parts.join('\n') : 'Нічого не горить 👌 Відміть, що з’їли й купили сьогодні.' };
 }

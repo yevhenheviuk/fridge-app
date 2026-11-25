@@ -98,7 +98,7 @@ export function db(env) {
     async _del(t, where, args) {
       const ti = await tableInfo(env, t);
       // children removed by ON DELETE CASCADE change too
-      const children = { goals: ['goal_contribs'], projects: ['project_notes'] }[t] || [];
+      const children = { goals: ['goal_contribs'] }[t] || [];
       const [r] = await D.batch([D.prepare(`DELETE FROM ${t} WHERE ${where} RETURNING *`).bind(...args), bumpStmt(env, t), ...children.map(c => bumpStmt(env, c))]);
       return r.results.map(x => out(ti, x));
     },

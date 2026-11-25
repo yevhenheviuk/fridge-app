@@ -17,3 +17,12 @@
 [data-feature="fridge"] .days small{font-size:.72rem}
 [data-feature="fridge"] .used{border:1.5px solid var(--line);background:transparent;border-radius:12px;width:40px;height:40px;display:grid;place-items:center;font-size:1.1rem;color:var(--muted)}
 [data-feature="fridge"] .used:hover{border-color:var(--fresh);color:var(--fresh)}
+/* swipe rows: → used + shopping, ← used; hold = configurable (settings) */
+[data-feature="fridge"] .swipe{position:relative;border-radius:14px;overflow:hidden;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+[data-feature="fridge"] .swipe .item{position:relative;transition:transform .16s ease}
+[data-feature="fridge"] .swipe.dragging .item{transition:none}
+[data-feature="fridge"] .swipe-bg{position:absolute;inset:0;display:flex;justify-content:space-between;align-items:center;padding:0 18px;font-weight:700;color:#fff;background:var(--muted)}
+[data-feature="fridge"] .swipe-bg span{opacity:0}
+[data-feature="fridge"] .swipe.to-r .swipe-bg .l,[data-feature="fridge"] .swipe.to-l .swipe-bg .r{opacity:1}
+[data-feature="fridge"] .swipe.go .swipe-bg{background:var(--fresh)}
+@media (prefers-reduced-motion:reduce){[data-feature="fridge"] .swipe .item{transition:none}}
